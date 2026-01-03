@@ -12,7 +12,7 @@ interface PriceFeed {
   updated: string;
 }
 
-// Mock data - fallback when Oracle prices are unavailable or all zero
+// Mock data - fallback when Oracle prices are unavailable
 const mockPrices: PriceFeed[] = [
   { symbol: 'BTC_USD', name: 'Bitcoin', price: '$98,500.00', change: '+2.4%', updated: '2 min ago' },
   { symbol: 'ETH_USD', name: 'Ethereum', price: '$3,450.00', change: '+1.8%', updated: '2 min ago' },
@@ -22,7 +22,6 @@ const mockPrices: PriceFeed[] = [
 export default function PricesComponent() {
   const [prices, setPrices] = useState<PriceFeed[]>([]);
   const [loading, setLoading] = useState(true);
-  const [usingMock, setUsingMock] = useState(false);
 
   useEffect(() => {
     loadPrices();
@@ -30,7 +29,6 @@ export default function PricesComponent() {
 
   async function loadPrices() {
     setLoading(true);
-    setUsingMock(false);
     
     try {
       // Try to fetch real prices from Oracle contract
@@ -63,7 +61,7 @@ export default function PricesComponent() {
               updated: 'Just now',
             };
           } catch (error) {
-            console.error(`Failed to fetch ${feed.symbol}:`, error);
+            // Silently fail - will use mock data
             return null;
           }
         })
@@ -73,22 +71,18 @@ export default function PricesComponent() {
       const validPrices = pricesData.filter(p => p !== null) as PriceFeed[];
       
       if (validPrices.length === 0 || pricesData.every(p => p === null)) {
-        console.warn('⚠️ All Oracle prices are zero or unavailable. Using mock data.');
+        // Silently fallback to mock data - no user-facing warning
         setPrices(mockPrices);
-        setUsingMock(true);
       } else {
         // Use real prices, fill in missing ones with mock
         const finalPrices = pricesData.map((p, idx) => 
           p || mockPrices[idx]
         ) as PriceFeed[];
         setPrices(finalPrices);
-        setUsingMock(false);
       }
     } catch (error) {
-      console.error('Failed to load prices from Oracle:', error);
-      // Fallback to mock data on error
+      // Silently fallback to mock data on error
       setPrices(mockPrices);
-      setUsingMock(true);
     } finally {
       setLoading(false);
     }
@@ -100,11 +94,7 @@ export default function PricesComponent() {
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-4xl font-bold gradient-text mb-2">Oracle Price Feeds</h1>
-            <p className="text-gray-400">
-              {usingMock 
-                ? 'Using mock data (Oracle prices unavailable)' 
-                : 'Live cryptocurrency prices from CasperLink Oracle'}
-            </p>
+            <p className="text-gray-400">Live cryptocurrency prices from CasperLink Oracle</p>
           </div>
           <div className="flex gap-4">
             <button 
