@@ -87,7 +87,7 @@ export default function HomeComponent() {
         if (storedIntents) {
           try {
             intents = JSON.parse(storedIntents);
-          } catch (e) {
+          } catch {
             console.error('Failed to parse stored intents');
           }
         }

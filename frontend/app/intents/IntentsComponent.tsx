@@ -81,7 +81,7 @@ export default function IntentsComponent() {
       if (storedIntents) {
         try {
           userIntents = JSON.parse(storedIntents);
-        } catch (e) {
+        } catch {
           console.error('Failed to parse stored intents');
         }
       }
@@ -243,7 +243,7 @@ export default function IntentsComponent() {
 
             <div className="glass-card rounded-xl p-4 mt-6 border border-blue-500/30">
               <p className="text-sm text-blue-300 text-center">
-                <strong>🔍 On-Chain Proof:</strong> Intents with "Verified on Explorer" links are real transactions on Casper Testnet.{' '}
+                <strong>🔍 On-Chain Proof:</strong> Intents with &quot;Verified on Explorer&quot; links are real transactions on Casper Testnet.{' '}
                 Click to view the transaction hash and contract execution details.
               </p>
             </div>
