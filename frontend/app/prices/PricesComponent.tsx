@@ -60,7 +60,7 @@ export default function PricesComponent() {
               change: '+0.0%', // Real-time change calculation would require price history
               updated: 'Just now',
             };
-          } catch (error) {
+          } catch {
             // Silently fail - will use mock data
             return null;
           }
@@ -80,7 +80,7 @@ export default function PricesComponent() {
         ) as PriceFeed[];
         setPrices(finalPrices);
       }
-    } catch (error) {
+    } catch {
       // Silently fallback to mock data on error
       setPrices(mockPrices);
     } finally {
