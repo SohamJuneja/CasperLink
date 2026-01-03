@@ -5,7 +5,7 @@ const { CLPublicKey, DeployUtil, RuntimeArgs, CLValueBuilder } = CasperSDK;
 
 export class ContractService {
   private chainName = CONTRACT_CONFIG.chainName;
-  private nodeAddress = 'https://api.testnet.cspr.cloud/rpc';
+  private nodeAddress = CONTRACT_CONFIG.nodeAddress;
   private intentParserHash = CONTRACT_CONFIG.intentParserPackageHash;
   private oracleHash = CONTRACT_CONFIG.oraclePackageHash;
 

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { contractService } from '@/lib/contract';
 
 interface PriceFeed {
   symbol: string;
@@ -11,9 +12,8 @@ interface PriceFeed {
   updated: string;
 }
 
-// Mock data - represents current market prices
-// In production: queried from on-chain Oracle (hash-c558b459...)
-const mockPrices = [
+// Mock data - fallback when Oracle prices are unavailable or all zero
+const mockPrices: PriceFeed[] = [
   { symbol: 'BTC_USD', name: 'Bitcoin', price: '$98,500.00', change: '+2.4%', updated: '2 min ago' },
   { symbol: 'ETH_USD', name: 'Ethereum', price: '$3,450.00', change: '+1.8%', updated: '2 min ago' },
   { symbol: 'CSPR_USD', name: 'Casper', price: '$0.0441', change: '-0.5%', updated: '2 min ago' },
@@ -22,6 +22,7 @@ const mockPrices = [
 export default function PricesComponent() {
   const [prices, setPrices] = useState<PriceFeed[]>([]);
   const [loading, setLoading] = useState(true);
+  const [usingMock, setUsingMock] = useState(false);
 
   useEffect(() => {
     loadPrices();
@@ -29,12 +30,68 @@ export default function PricesComponent() {
 
   async function loadPrices() {
     setLoading(true);
+    setUsingMock(false);
     
-    // Simulate loading delay
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    setPrices(mockPrices);
-    setLoading(false);
+    try {
+      // Try to fetch real prices from Oracle contract
+      const priceFeeds = [
+        { symbol: 'BTC_USD', name: 'Bitcoin' },
+        { symbol: 'ETH_USD', name: 'Ethereum' },
+        { symbol: 'CSPR_USD', name: 'Casper' },
+      ];
+
+      const pricesData = await Promise.all(
+        priceFeeds.map(async (feed) => {
+          try {
+            const priceValue = await contractService.getOraclePrice(feed.symbol);
+            const priceNum = parseFloat(priceValue) / 100_000_000; // Convert from motes
+            
+            // If price is 0 or invalid, return null to trigger fallback
+            if (!priceNum || priceNum === 0 || isNaN(priceNum)) {
+              return null;
+            }
+
+            // Format price based on value
+            const formattedPrice = priceNum > 1 
+              ? `$${priceNum.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+              : `$${priceNum.toFixed(4)}`;
+
+            return {
+              ...feed,
+              price: formattedPrice,
+              change: '+0.0%', // Real-time change calculation would require price history
+              updated: 'Just now',
+            };
+          } catch (error) {
+            console.error(`Failed to fetch ${feed.symbol}:`, error);
+            return null;
+          }
+        })
+      );
+
+      // Check if all prices are null/zero - use mock data as fallback
+      const validPrices = pricesData.filter(p => p !== null) as PriceFeed[];
+      
+      if (validPrices.length === 0 || pricesData.every(p => p === null)) {
+        console.warn('⚠️ All Oracle prices are zero or unavailable. Using mock data.');
+        setPrices(mockPrices);
+        setUsingMock(true);
+      } else {
+        // Use real prices, fill in missing ones with mock
+        const finalPrices = pricesData.map((p, idx) => 
+          p || mockPrices[idx]
+        ) as PriceFeed[];
+        setPrices(finalPrices);
+        setUsingMock(false);
+      }
+    } catch (error) {
+      console.error('Failed to load prices from Oracle:', error);
+      // Fallback to mock data on error
+      setPrices(mockPrices);
+      setUsingMock(true);
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -43,11 +100,19 @@ export default function PricesComponent() {
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-4xl font-bold gradient-text mb-2">Oracle Price Feeds</h1>
-            <p className="text-gray-400">Live cryptocurrency prices from CasperLink Oracle</p>
+            <p className="text-gray-400">
+              {usingMock 
+                ? 'Using mock data (Oracle prices unavailable)' 
+                : 'Live cryptocurrency prices from CasperLink Oracle'}
+            </p>
           </div>
           <div className="flex gap-4">
-            <button onClick={loadPrices} className="text-sm text-gray-400 hover:text-white transition">
-              🔄 Refresh
+            <button 
+              onClick={loadPrices} 
+              disabled={loading}
+              className="text-sm text-gray-400 hover:text-white transition disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? '🔄 Refreshing...' : '🔄 Refresh'}
             </button>
             <Link href="/" className="text-gray-400 hover:text-white transition">
               ← Back
@@ -57,7 +122,7 @@ export default function PricesComponent() {
 
         {loading ? (
           <div className="text-center py-12">
-            <p className="text-gray-400">Loading price feeds...</p>
+            <p className="text-gray-400">Loading price feeds from blockchain...</p>
           </div>
         ) : (
           <div className="grid gap-4">
