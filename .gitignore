@@ -1,0 +1,69 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build outputs
+.next/
+out/
+dist/
+build/
+**/target/
+**/wasm/
+*.wasm
+
+# Rust
+Cargo.lock
+**/Cargo.lock
+*.pdb
+*.exe
+
+# Environment
+.env
+.env.local
+.env*.local
+**/.env
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Vercel
+.vercel/
+**/.vercel/
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Keys and secrets
+*.pem
+**/keys/
+**/*.pem
+
+# Backup files
+*.backup
+*.bak
+*.tmp
+
+# Media files (if not needed)
+*.mp4
+*.mov
+*.avi
+
+# Test files (optional - include if needed)
+# **/test_*.sh
+

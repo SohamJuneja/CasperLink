@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Casper Test</title>
+    <script src="https://unpkg.com/@make-software/csprclick-core-client/dist/csprclick-core-client.min.js"></script>
+</head>
+<body>
+    <h1>Extension Test</h1>
+    <button id="btn">Connect</button>
+    <script>
+        console.log("Checking for Casper provider...");
+        setTimeout(() => {
+            if (window.casperlabsHelper) {
+                alert("Extension Loaded Successfully!");
+            } else {
+                alert("Extension NOT detected - It crashed.");
+            }
+        }, 2000);
+    </script>
+</body>
+</html>
