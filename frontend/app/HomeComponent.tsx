@@ -69,6 +69,33 @@ export default function HomeComponent() {
   
       if (result?.deployHash) {
         setTxHash(result.deployHash);
+        
+        // 🔥 NEW: Save intent to localStorage
+        const newIntent = {
+          id: `intent_${Date.now()}`,
+          fromToken: tokenIn,
+          toToken: tokenOut,
+          amount: `${amount} ${tokenIn}`,
+          status: 'Pending',
+          createdAt: new Date().toISOString(),
+          txHash: result.deployHash,
+        };
+
+        const storedIntents = localStorage.getItem('casperlink_user_intents');
+        let intents = [];
+        
+        if (storedIntents) {
+          try {
+            intents = JSON.parse(storedIntents);
+          } catch (e) {
+            console.error('Failed to parse stored intents');
+          }
+        }
+
+        intents.unshift(newIntent);
+        localStorage.setItem('casperlink_user_intents', JSON.stringify(intents));
+        // 🔥 END NEW
+        
         setAmount('');
       }
     } catch (error) {
@@ -183,17 +210,26 @@ export default function HomeComponent() {
 
             {txHash && (
               <div className="p-4 bg-green-500/10 border border-green-500/30 rounded-lg">
-                <p className="text-sm text-green-400 break-all">
+                <p className="text-sm text-green-400 break-all mb-2">
                   ✅ Intent created! TX: {txHash}
                 </p>
-                <a 
-                  href={`https://testnet.cspr.live/deploy/${txHash}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-green-300 hover:text-green-200 underline mt-2 block"
-                >
-                  View on Explorer →
-                </a>
+                <div className="flex gap-2">
+                  <a 
+                    href={`https://testnet.cspr.live/deploy/${txHash}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-green-300 hover:text-green-200 underline"
+                  >
+                    View on Explorer →
+                  </a>
+                  <span className="text-gray-500">•</span>
+                  <Link
+                    href="/intents"
+                    className="text-xs text-green-300 hover:text-green-200 underline"
+                  >
+                    View in My Intents →
+                  </Link>
+                </div>
               </div>
             )}
           </div>
