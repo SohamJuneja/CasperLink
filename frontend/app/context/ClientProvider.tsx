@@ -15,11 +15,15 @@ const ClickUI = dynamic(
   { ssr: false }
 );
 
-const clickOptions = {
-  appName: 'CasperLink',
-  contentMode: 'iframe',
-  providers: ['casper-wallet'],
-  appId: 'csprclick-template',
+// Get appId - must be accessed at runtime, not module level
+const getAppId = () => {
+  const appId = process.env.NEXT_PUBLIC_CSPR_CLICK_APP_ID;
+  if (!appId) {
+    console.warn('⚠️ NEXT_PUBLIC_CSPR_CLICK_APP_ID not set! Using fallback.');
+    return 'csprclick-template';
+  }
+  console.log('✅ Using CSPR Click AppID:', appId);
+  return appId;
 };
 
 const AppTheme = {
@@ -51,6 +55,14 @@ const TopBarContainer = styled.div({
 export default function ClientProvider({ children }: { children: React.ReactNode }) {
   const [themeMode] = useState<ThemeModeType>(ThemeModeType.dark);
   const topBarSettings = {};
+
+  // Create options at component level to ensure env var is read at runtime
+  const clickOptions = {
+    appName: 'CasperLink',
+    contentMode: 'iframe',
+    providers: ['casper-wallet'],
+    appId: getAppId(),
+  };
 
   return (
     <ClickProvider options={clickOptions}>
