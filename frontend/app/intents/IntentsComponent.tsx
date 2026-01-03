@@ -61,19 +61,6 @@ export default function IntentsComponent() {
     try {
       setLoading(true);
       
-      // REAL DATA: Your verified on-chain transaction
-      const verifiedIntent: Intent = {
-        id: 'intent_1caee218',
-        fromToken: 'BTC',
-        toToken: 'ETH',
-        amount: '0.1 BTC',
-        status: 'Completed',
-        price: '$98,500',
-        slippage: 2,
-        createdAt: '2024-01-03T10:30:00Z',
-        txHash: '1caee218457dc14e1031148fa16982c01fe11bfc6b49d229dd7d5d48a7aa8a9b'
-      };
-
       // Load user's intents from localStorage (persists across sessions)
       const storedIntents = localStorage.getItem('casperlink_user_intents');
       let userIntents: Intent[] = [];
@@ -86,10 +73,8 @@ export default function IntentsComponent() {
         }
       }
 
-      // Combine verified + user's intents
-      const allIntents = [verifiedIntent, ...userIntents];
-      
-      setIntents(allIntents);
+      // Only show user's real intents
+      setIntents(userIntents);
     } catch (err) {
       console.error('Error loading intents:', err);
     } finally {

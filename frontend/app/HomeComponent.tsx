@@ -129,6 +129,10 @@ export default function HomeComponent() {
               View My Intents
             </Link>
             <span className="text-gray-600">•</span>
+            <Link href="/how-it-works" className="text-sm text-gray-400 hover:text-white transition underline">
+              How It Works
+            </Link>
+            <span className="text-gray-600">•</span>
             <Link href="/prices" className="text-sm text-gray-400 hover:text-white transition underline">
               Oracle Prices
             </Link>
