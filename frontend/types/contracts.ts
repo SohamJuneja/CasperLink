@@ -29,6 +29,16 @@ export interface Intent {
     LINK: 'hash-617b3db3bb3af35db464fa494f07a5dec165093a1801b4a6961b6905473941c5',
   };
 
+  // CSPR.trade Router and Token addresses
+  export const CSPR_TRADE_CONFIG = {
+    // Router contract package hash (from David)
+    routerPackageHash: 'hash-04a11a367e708c52557930c4e9c1301f4465100d1b1b6d0a62b48d3e32402867',
+    // WCSPR (Wrapped CSPR) address - from David
+    wcspr: 'hash-3d80df21ba4ee4d66a2a1f60c32570dd5685e4b279f6538162a5fd1314847c1e',
+    // WUSDC (Wrapped USDC) address - from David
+    wusdc: 'hash-073024d1112dd970cc75b797952a70f71efe3a8a69af152e8fbe8ef434823396',
+  };
+
   export const CONTRACT_CONFIG: ContractConfig = {
     oraclePackageHash: 'hash-c558b459ba4e9d8a379bcef9629660d8cf9c34fa6e9c1165324959e433bc22ac',
     intentParserPackageHash: 'hash-b6aaa644364bcd232691517396431417d926a0d256f6c0d6fa05d505f1e027d0',

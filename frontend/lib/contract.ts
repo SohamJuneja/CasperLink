@@ -1,7 +1,14 @@
 import { CONTRACT_CONFIG, BRIDGED_TOKEN_ADDRESSES } from '@/types/contracts';
 import * as CasperSDK from 'casper-js-sdk';
 
-const { CLPublicKey, DeployUtil, RuntimeArgs, CLValueBuilder, CLByteArray, CLKey } = CasperSDK;
+const {
+  CLPublicKey,
+  DeployUtil,
+  RuntimeArgs,
+  CLValueBuilder,
+  CLByteArray,
+  CLKey
+} = CasperSDK;
 
 export class ContractService {
   private chainName = CONTRACT_CONFIG.chainName;
@@ -370,6 +377,129 @@ export class ContractService {
       return address;
     }
     return null;
+  }
+
+  /**
+   * Create a deploy for CSPR.trade swap (swap_exact_cspr_for_tokens)
+   * This is an alternative to CSPR.bridge for demonstrating working cross-chain swaps
+   *
+   * @param publicKey User's public key
+   * @param intentId Intent ID to execute
+   * @param cspr_amount Amount of CSPR to swap (in motes, 1 CSPR = 1e9 motes)
+   * @param token Token to receive (e.g., 'USDC')
+   * @param slippage_percent Slippage tolerance (e.g., 5 for 5%)
+   */
+  async createCsprTradeSwapDeploy(
+    publicKey: string,
+    intentId: string,
+    cspr_amount: string,
+    token: string,
+    slippage_percent: number = 5
+  ) {
+    console.log(`Creating CSPR.trade swap for intent ${intentId}: ${cspr_amount} motes CSPR -> ${token}`);
+
+    // Import CSPR.trade config
+    const { CSPR_TRADE_CONFIG } = await import('@/types/contracts');
+
+    const WCSPR_ADDRESS = CSPR_TRADE_CONFIG.wcspr;
+    const WUSDC_ADDRESS = CSPR_TRADE_CONFIG.wusdc;
+
+    if (!WCSPR_ADDRESS || !WUSDC_ADDRESS || WCSPR_ADDRESS === 'hash-' || WUSDC_ADDRESS === 'hash-') {
+      throw new Error('CSPR.trade token addresses not configured yet. Please ask David for WCSPR and WUSDC contract addresses.');
+    }
+
+    const senderPublicKey = CLPublicKey.fromHex(publicKey.toLowerCase());
+    const deployParams = new DeployUtil.DeployParams(senderPublicKey, this.chainName);
+
+    // Load proxy_caller.wasm
+    const proxyWasmResponse = await fetch('/proxy_caller.wasm');
+    if (!proxyWasmResponse.ok) {
+      throw new Error('Failed to load proxy_caller.wasm');
+    }
+    const proxyWasmBuffer = await proxyWasmResponse.arrayBuffer();
+    const proxyWasm = new Uint8Array(proxyWasmBuffer);
+
+    // Calculate minimum output with slippage
+    const estimatedOutput = BigInt(cspr_amount) / BigInt(200); // Rough estimate
+    const minOutput = (estimatedOutput * BigInt(100 - slippage_percent)) / BigInt(100);
+
+    // Prepare args for swap_exact_cspr_for_tokens
+    const routerHash = CSPR_TRADE_CONFIG.routerPackageHash.replace('hash-', '');
+    const epochPlus10Min = Date.now() + 10 * 60 * 1000; // milliseconds
+
+    // Build path as List<Key> - create CLKey objects for WCSPR and WUSDC
+    const wcsprHash = WCSPR_ADDRESS.replace('hash-', '');
+    const wusdcHash = WUSDC_ADDRESS.replace('hash-', '');
+
+    // Create Key bytes: 1 byte variant (0x01 for Hash) + 32 bytes hash
+    const wcsprKeyBytes = new Uint8Array(33);
+    wcsprKeyBytes[0] = 0x01; // Hash variant
+    wcsprKeyBytes.set(Uint8Array.from(Buffer.from(wcsprHash, 'hex')), 1);
+
+    const wusdcKeyBytes = new Uint8Array(33);
+    wusdcKeyBytes[0] = 0x01; // Hash variant
+    wusdcKeyBytes.set(Uint8Array.from(Buffer.from(wusdcHash, 'hex')), 1);
+
+    // Create recipient key (Account variant)
+    const recipientKeyBytes = new Uint8Array(33);
+    recipientKeyBytes[0] = 0x02; // Account variant
+    recipientKeyBytes.set(senderPublicKey.toAccountHash(), 1);
+
+    // Build swap args using CLValueBuilder (v2.15.5 API)
+    const odraArgs = RuntimeArgs.fromMap({
+      amount_out_min: CLValueBuilder.u256(minOutput.toString()),
+      path: CLValueBuilder.list([
+        new CLKey(new CLByteArray(wcsprKeyBytes)),
+        new CLKey(new CLByteArray(wusdcKeyBytes))
+      ]),
+      to: new CLKey(new CLByteArray(recipientKeyBytes)),
+      deadline: CLValueBuilder.u64(epochPlus10Min),
+    });
+
+    console.log('Creating swap args with:', {
+      amount_out_min: minOutput.toString(),
+      path_keys: 2,
+      recipient_account_hash: Buffer.from(senderPublicKey.toAccountHash()).toString('hex'),
+      deadline: epochPlus10Min
+    });
+
+    const swapRuntimeArgs = odraArgs;
+
+    // Build proxy_caller args (following David's pattern from stake.ts)
+    // The args need to be serialized as a list of U8 values
+    const swapArgsBytesArray = Array.from(swapRuntimeArgs.toBytes());
+    const serializedSwapArgs = CLValueBuilder.list(
+      swapArgsBytesArray.map(b => CLValueBuilder.u8(b))
+    );
+
+    console.log('Serialized swap args length:', swapArgsBytesArray.length);
+
+    const proxyArgs = RuntimeArgs.fromMap({
+      amount: CLValueBuilder.u512(cspr_amount), // Total CSPR to send
+      attached_value: CLValueBuilder.u512(cspr_amount), // CSPR for the swap
+      entry_point: CLValueBuilder.string('swap_exact_cspr_for_tokens'),
+      package_hash: CLValueBuilder.byteArray(Uint8Array.from(Buffer.from(routerHash, 'hex'))),
+      args: serializedSwapArgs,
+    });
+
+    console.log('Proxy args created successfully');
+
+    console.log('Using proxy_caller pattern with CSPR amount:', cspr_amount);
+
+    // Create session with proxy_caller WASM
+    const session = DeployUtil.ExecutableDeployItem.newModuleBytes(
+      proxyWasm,
+      proxyArgs
+    );
+
+    // Payment is just for gas (the swap amount is in the session)
+    const payment = DeployUtil.standardPayment('15000000000'); // 15 CSPR for gas
+
+    const deploy = DeployUtil.makeDeploy(deployParams, session, payment);
+    const deployJson = JSON.stringify(DeployUtil.deployToJson(deploy).deploy);
+
+    console.log('Proxy deploy created, length:', deployJson.length);
+    return deployJson;
   }
 }
 

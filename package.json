@@ -1,0 +1,12 @@
+{
+  "name": "casperlink-scripts",
+  "version": "1.0.0",
+  "description": "Backend scripts for CasperLink",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "casper-js-sdk": "^5.0.0"
+  }
+}

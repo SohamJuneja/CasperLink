@@ -49,6 +49,8 @@ export default function IntentsComponent() {
   const [showBridgeModal, setShowBridgeModal] = useState<string | null>(null);
   const [bridgeError, setBridgeError] = useState<string | null>(null);
   const [bridgeTxHash, setBridgeTxHash] = useState<string | null>(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successTxHash, setSuccessTxHash] = useState<string | null>(null);
 
   useEffect(() => {
     if (!clickRef) return;
@@ -315,6 +317,95 @@ export default function IntentsComponent() {
     }
   };
 
+  // NEW: Execute via CSPR.trade swap - alternative to CSPR.bridge
+  // Swaps CSPR -> WUSDC on CSPR.trade DEX to demonstrate working execution
+  const executeViaCsprTrade = async (intent: Intent) => {
+    if (!activeAccount || !clickRef) {
+      setBridgeError('Please connect your wallet first');
+      return;
+    }
+
+    try {
+      setExecutingId(intent.id);
+      setBridgeError(null);
+
+      // Convert intent amount to CSPR motes (assume 1:1 for demo, or use price calculation)
+      const amountInMotes = (parseFloat(intent.amount) * 1e9).toString(); // Convert to motes
+
+      console.log('Executing CSPR.trade swap:', {
+        intentId: intent.id,
+        amount: amountInMotes,
+        token: intent.toToken,
+        publicKey: activeAccount.public_key
+      });
+
+      // Call backend API to create deploy using David's exact pattern
+      console.log('Calling backend API to create deploy...');
+      const apiResponse = await fetch('/api/create-swap-deploy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          publicKey: activeAccount.public_key,
+          cspr_amount: amountInMotes,
+          slippage_percent: 5
+        })
+      });
+
+      if (!apiResponse.ok) {
+        const errorData = await apiResponse.json();
+        throw new Error(errorData.error || 'Failed to create deploy');
+      }
+
+      const apiResult = await apiResponse.json();
+      console.log('API response:', apiResult);
+
+      const { deployJson } = apiResult;
+      console.log('Deploy JSON type:', typeof deployJson);
+      console.log('Deploy JSON length:', deployJson?.length);
+      console.log('Deploy created by backend, sending to CSPR.click...');
+
+      // Send via CSPR.click - user signs with their wallet
+      const result = await clickRef.send(deployJson, activeAccount.public_key);
+
+      console.log('CSPR.click send result:', result);
+
+      // CSPR.click SDK v5 returns transactionHash, not deployHash
+      const txHash = result?.transactionHash || result?.deployHash;
+
+      if (txHash) {
+        setBridgeTxHash(txHash);
+
+        // Update intent status to Executing with the execution tx hash
+        const updatedIntents = intents.map(i =>
+          i.id === intent.id ? {
+            ...i,
+            status: 'Executing' as const,
+            executeTxHash: txHash,
+            csprTradeSwap: true
+          } : i
+        );
+        setIntents(updatedIntents);
+        localStorage.setItem('casperlink_user_intents', JSON.stringify(updatedIntents));
+
+        // Show success modal with transaction hash
+        setSuccessTxHash(txHash);
+        setShowSuccessModal(true);
+      } else if (result?.cancelled) {
+        throw new Error('Transaction was cancelled by user');
+      } else if (result?.error) {
+        throw new Error(`Transaction failed: ${result.error}`);
+      } else {
+        throw new Error('No transaction hash received from wallet');
+      }
+    } catch (error) {
+      console.error('CSPR.trade execution failed:', error);
+      console.error('Error details:', JSON.stringify(error, null, 2));
+      setBridgeError((error as Error).message || 'Failed to execute swap on CSPR.trade. Check console for details.');
+    } finally {
+      setExecutingId(null);
+    }
+  };
+
   const getStatusColor = (status: Intent['status']) => {
     switch (status) {
       case 'Completed':
@@ -469,9 +560,26 @@ export default function IntentsComponent() {
                               }}
                               className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition inline-flex items-center gap-2"
                             >
-                              🔥 Execute On-Chain
+                              🔥 Execute via CSPR.bridge
                             </button>
                           )}
+                          {/* NEW: CSPR.trade execution - working alternative */}
+                          <button
+                            onClick={() => executeViaCsprTrade(intent)}
+                            disabled={executingId === intent.id}
+                            className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition inline-flex items-center gap-2"
+                          >
+                            {executingId === intent.id ? (
+                              <>
+                                <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
+                                <span>Creating swap...</span>
+                              </>
+                            ) : (
+                              <>
+                                💱 Execute via CSPR.trade
+                              </>
+                            )}
+                          </button>
                           {/* Fallback: external bridge link */}
                           <a
                             href={getBridgeUrl()}
@@ -480,7 +588,7 @@ export default function IntentsComponent() {
                             onClick={() => markAsBridging(intent)}
                             className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium transition inline-flex items-center gap-2"
                           >
-                            ⚡ Use CSPRBridge →
+                            ⚡ Manual Bridge →
                           </a>
                         </div>
                       )}
@@ -732,6 +840,77 @@ export default function IntentsComponent() {
           </div>
         )}
       </div>
+
+      {/* Success Modal */}
+      {showSuccessModal && successTxHash && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-800 rounded-lg p-6 max-w-2xl w-full border border-green-500">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold text-green-400 flex items-center gap-2">
+                <span className="text-2xl">✅</span>
+                Transaction Submitted Successfully!
+              </h3>
+              <button
+                onClick={() => {
+                  setShowSuccessModal(false);
+                  setSuccessTxHash(null);
+                }}
+                className="text-gray-400 hover:text-white text-2xl leading-none"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <p className="text-gray-300">
+                Your CSPR.trade swap transaction has been submitted to the Casper testnet.
+              </p>
+
+              <div className="bg-gray-900 rounded p-4 border border-gray-700">
+                <p className="text-sm text-gray-400 mb-2">Transaction Hash:</p>
+                <div className="flex items-center gap-2">
+                  <code className="text-green-400 text-sm break-all flex-1">
+                    {successTxHash}
+                  </code>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(successTxHash);
+                      alert('Copied to clipboard!');
+                    }}
+                    className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm whitespace-nowrap"
+                  >
+                    Copy
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <a
+                  href={`https://testnet.cspr.live/transaction/${successTxHash}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-center font-medium transition"
+                >
+                  View on Explorer →
+                </a>
+                <button
+                  onClick={() => {
+                    setShowSuccessModal(false);
+                    setSuccessTxHash(null);
+                  }}
+                  className="px-6 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-medium transition"
+                >
+                  Close
+                </button>
+              </div>
+
+              <p className="text-xs text-gray-500">
+                Note: The transaction may take a few moments to appear on the explorer.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
