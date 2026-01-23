@@ -1,2 +1,12 @@
 [[contracts]]
 fqn = "intent_parser::IntentParser"
+
+[livenet]
+
+[[livenet.init_args]]
+name = "oracle_contract"
+value = "hash-c558b459ba4e9d8a379bcef9629660d8cf9c34fa6e9c1165324959e433bc22ac"
+
+[[livenet.init_args]]
+name = "token_factory"
+value = "hash-03d00e4f26b4717f35b13f154c2da117c4d146607ad85a93104c7441392ccf4b"

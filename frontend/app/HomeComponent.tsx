@@ -28,6 +28,11 @@ export default function HomeComponent() {
   const [tokenOut, setTokenOut] = useState('CSPR');
   const [amount, setAmount] = useState('');
 
+  // Smart Price Execution
+  const [enablePriceCondition, setEnablePriceCondition] = useState(false);
+  const [priceCondition, setPriceCondition] = useState<'gte' | 'lte'>('gte');
+  const [targetPrice, setTargetPrice] = useState('');
+
   useEffect(() => {
     if (!clickRef) return;
 
@@ -69,21 +74,11 @@ export default function HomeComponent() {
   
       if (result?.deployHash) {
         setTxHash(result.deployHash);
-        
-        // 🔥 NEW: Save intent to localStorage
-        const newIntent = {
-          id: `intent_${Date.now()}`,
-          fromToken: tokenIn,
-          toToken: tokenOut,
-          amount: `${amount} ${tokenIn}`,
-          status: 'Pending',
-          createdAt: new Date().toISOString(),
-          txHash: result.deployHash,
-        };
 
+        // Get existing intents first to calculate sequential ID
         const storedIntents = localStorage.getItem('casperlink_user_intents');
         let intents = [];
-        
+
         if (storedIntents) {
           try {
             intents = JSON.parse(storedIntents);
@@ -91,6 +86,29 @@ export default function HomeComponent() {
             console.error('Failed to parse stored intents');
           }
         }
+
+        // Calculate next sequential intent ID (1, 2, 3...)
+        // This should match the contract's auto-increment ID
+        const nextIntentId = intents.length + 1;
+
+        // 🔥 NEW: Save intent to localStorage with price condition
+        const newIntent = {
+          id: nextIntentId.toString(), // Sequential ID matching contract
+          clientId: `intent_${Date.now()}`, // Keep timestamp for uniqueness
+          fromToken: tokenIn,
+          toToken: tokenOut,
+          fromChain: sourceChain,
+          toChain: destChain,
+          amount: `${amount} ${tokenIn}`,
+          status: enablePriceCondition ? 'Watching' : 'Pending',
+          createdAt: new Date().toISOString(),
+          txHash: result.deployHash,
+          // Smart Price Execution fields
+          hasPriceCondition: enablePriceCondition,
+          priceCondition: enablePriceCondition ? priceCondition : null,
+          targetPrice: enablePriceCondition ? parseFloat(targetPrice) : null,
+          priceToken: enablePriceCondition ? tokenIn : null,
+        };
 
         intents.unshift(newIntent);
         localStorage.setItem('casperlink_user_intents', JSON.stringify(intents));
@@ -202,6 +220,62 @@ export default function HomeComponent() {
                   <option key={token} value={token}>{token}</option>
                 ))}
               </select>
+            </div>
+
+            {/* Smart Price Execution Section */}
+            <div className="border border-white/10 rounded-lg p-4 bg-gradient-to-r from-blue-500/5 to-purple-500/5">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">⚡</span>
+                  <span className="font-medium">Smart Price Execution</span>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={enablePriceCondition}
+                    onChange={(e) => setEnablePriceCondition(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
+                </label>
+              </div>
+
+              {enablePriceCondition && (
+                <div className="space-y-3 mt-4">
+                  <p className="text-xs text-gray-400">
+                    Set a price condition - your intent will execute automatically when the target price is reached.
+                  </p>
+                  <div className="flex gap-3">
+                    <select
+                      value={priceCondition}
+                      onChange={(e) => setPriceCondition(e.target.value as 'gte' | 'lte')}
+                      className="bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm"
+                    >
+                      <option value="gte">Execute when {tokenIn} price &gt;=</option>
+                      <option value="lte">Execute when {tokenIn} price &lt;=</option>
+                    </select>
+                    <div className="flex-1 relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
+                      <input
+                        type="number"
+                        step="0.0001"
+                        value={targetPrice}
+                        onChange={(e) => setTargetPrice(e.target.value)}
+                        placeholder="Target price"
+                        className="w-full bg-black/30 border border-white/10 rounded-lg pl-7 pr-4 py-2 text-sm"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-blue-400 bg-blue-500/10 rounded-lg px-3 py-2">
+                    <span>💡</span>
+                    <span>
+                      Intent will be in &quot;Watching&quot; status until {tokenIn} price
+                      {priceCondition === 'gte' ? ' reaches or exceeds ' : ' drops to or below '}
+                      ${targetPrice || '...'} USD
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
 
             <button

@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useClickRef } from '@make-software/csprclick-ui';
 import Link from 'next/link';
+import { contractService } from '@/lib/contract';
 
 interface ClickAccount {
   public_key: string;
@@ -18,12 +19,23 @@ interface Intent {
   id: string;
   fromToken: string;
   toToken: string;
+  fromChain?: string;
+  toChain?: string;
   amount: string;
-  status: 'Created' | 'Pending' | 'Executing' | 'Completed';
+  status: 'Created' | 'Pending' | 'Executing' | 'Completed' | 'Watching' | 'Ready';
   price?: string;
   slippage?: number;
   createdAt: string;
   txHash?: string;
+  // Smart Price Execution fields
+  hasPriceCondition?: boolean;
+  priceCondition?: 'gte' | 'lte' | null;
+  targetPrice?: number | null;
+  priceToken?: string | null;
+}
+
+interface PriceData {
+  [symbol: string]: number;
 }
 
 export default function IntentsComponent() {
@@ -31,6 +43,12 @@ export default function IntentsComponent() {
   const [activeAccount, setActiveAccount] = useState<ClickAccount | null>(null);
   const [intents, setIntents] = useState<Intent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentPrices, setCurrentPrices] = useState<PriceData>({});
+  const [executingId, setExecutingId] = useState<string | null>(null);
+  const [ethRecipient, setEthRecipient] = useState<string>('');
+  const [showBridgeModal, setShowBridgeModal] = useState<string | null>(null);
+  const [bridgeError, setBridgeError] = useState<string | null>(null);
+  const [bridgeTxHash, setBridgeTxHash] = useState<string | null>(null);
 
   useEffect(() => {
     if (!clickRef) return;
@@ -53,18 +71,89 @@ export default function IntentsComponent() {
     }
   }, [clickRef]);
 
+  // Fetch current prices from API
+  const fetchPrices = useCallback(async () => {
+    try {
+      const response = await fetch(`/api/prices?t=${Date.now()}`, { cache: 'no-store' });
+      const data = await response.json();
+      if (data.success && data.prices) {
+        const priceMap: PriceData = {};
+        data.prices.forEach((p: { symbol: string; price: number }) => {
+          // Store both formats: ETH_USD and ETH for compatibility
+          priceMap[p.symbol] = p.price;
+          // Also store without _USD suffix for matching with intent priceToken
+          const baseSymbol = p.symbol.replace('_USD', '');
+          priceMap[baseSymbol] = p.price;
+        });
+        setCurrentPrices(priceMap);
+        return priceMap;
+      }
+    } catch (error) {
+      console.error('Failed to fetch prices:', error);
+    }
+    return currentPrices;
+  }, [currentPrices]);
+
+  // Check if price condition is met
+  const checkPriceCondition = useCallback((intent: Intent, prices: PriceData): boolean => {
+    if (!intent.hasPriceCondition || !intent.priceToken || !intent.targetPrice) {
+      return false;
+    }
+    const currentPrice = prices[intent.priceToken];
+    if (!currentPrice) return false;
+
+    if (intent.priceCondition === 'gte') {
+      return currentPrice >= intent.targetPrice;
+    } else if (intent.priceCondition === 'lte') {
+      return currentPrice <= intent.targetPrice;
+    }
+    return false;
+  }, []);
+
+  // Update intent statuses based on price conditions
+  const updateIntentStatuses = useCallback((intents: Intent[], prices: PriceData): Intent[] => {
+    let updated = false;
+    const newIntents = intents.map(intent => {
+      if (intent.status === 'Watching' && intent.hasPriceCondition) {
+        if (checkPriceCondition(intent, prices)) {
+          updated = true;
+          return { ...intent, status: 'Ready' as const };
+        }
+      }
+      return intent;
+    });
+
+    if (updated) {
+      localStorage.setItem('casperlink_user_intents', JSON.stringify(newIntents));
+    }
+    return newIntents;
+  }, [checkPriceCondition]);
+
   useEffect(() => {
     loadIntents();
   }, []);
 
+  // Price monitoring interval for watching intents
+  useEffect(() => {
+    const hasWatchingIntents = intents.some(i => i.status === 'Watching');
+    if (!hasWatchingIntents) return;
+
+    const interval = setInterval(async () => {
+      const prices = await fetchPrices();
+      setIntents(prev => updateIntentStatuses(prev, prices));
+    }, 15000); // Check every 15 seconds
+
+    return () => clearInterval(interval);
+  }, [intents, fetchPrices, updateIntentStatuses]);
+
   const loadIntents = async () => {
     try {
       setLoading(true);
-      
+
       // Load user's intents from localStorage (persists across sessions)
       const storedIntents = localStorage.getItem('casperlink_user_intents');
       let userIntents: Intent[] = [];
-      
+
       if (storedIntents) {
         try {
           userIntents = JSON.parse(storedIntents);
@@ -73,12 +162,156 @@ export default function IntentsComponent() {
         }
       }
 
-      // Only show user's real intents
-      setIntents(userIntents);
+      // Fetch current prices
+      const prices = await fetchPrices();
+
+      // Update statuses based on price conditions
+      const updatedIntents = updateIntentStatuses(userIntents, prices);
+
+      setIntents(updatedIntents);
     } catch (err) {
       console.error('Error loading intents:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Get bridge URL (simple link to testnet bridge)
+  const getBridgeUrl = (): string => {
+    return 'https://testnet.csprbridge.com';
+  };
+
+  // Get bridge parameters for display
+  const getBridgeParams = (intent: Intent) => {
+    const fromChain = intent.fromChain || 'ETHEREUM';
+    const toChain = intent.toChain || 'CASPER';
+
+    // Extract amount number from string like "0.1 ETH"
+    const amountMatch = intent.amount.match(/^([\d.]+)/);
+    const amount = amountMatch ? amountMatch[1] : '0';
+
+    // Map tokens to bridge-supported tokens
+    // Bridge supports: USDC, WETH, LINK, CSPR
+    const tokenMap: Record<string, string> = {
+      'USDC': 'USDC',
+      'WETH': 'WETH',
+      'ETH': 'WETH',
+      'LINK': 'LINK',
+      'CSPR': 'CSPR',
+    };
+
+    const token = tokenMap[intent.fromToken] || intent.fromToken;
+
+    return {
+      fromChain: fromChain === 'CASPER' ? 'Casper' : 'Ethereum Sepolia',
+      toChain: toChain === 'CASPER' ? 'Casper' : 'Ethereum Sepolia',
+      token,
+      amount,
+    };
+  };
+
+  // Mark intent as bridging (user clicked to go to bridge)
+  const markAsBridging = (intent: Intent) => {
+    const updatedIntents = intents.map(i =>
+      i.id === intent.id ? { ...i, status: 'Executing' as const } : i
+    );
+    setIntents(updatedIntents);
+    localStorage.setItem('casperlink_user_intents', JSON.stringify(updatedIntents));
+  };
+
+  // Mark intent as completed (user confirms bridge was done)
+  const markAsCompleted = (intentId: string) => {
+    const updatedIntents = intents.map(i =>
+      i.id === intentId ? { ...i, status: 'Completed' as const } : i
+    );
+    setIntents(updatedIntents);
+    localStorage.setItem('casperlink_user_intents', JSON.stringify(updatedIntents));
+  };
+
+  // Check if this intent can use on-chain execution
+  // Works for any intent that has an on-chain txHash (created via IntentParser)
+  const canUseOnChainExecution = (intent: Intent): boolean => {
+    // Must have a txHash from the original intent creation
+    return !!intent.txHash;
+  };
+
+  // Check if intent can use real bridge (has supported token)
+  const canUseRealBridge = (intent: Intent): boolean => {
+    const supportedTokens = ['USDC', 'WETH', 'LINK'];
+    return supportedTokens.includes(intent.fromToken);
+  };
+
+  // Execute intent on-chain via IntentParser
+  // Uses execute_intent_with_burn() for real bridge (USDC/WETH/LINK)
+  // Uses execute_intent() for demo mode (other tokens)
+  const executeOnChain = async (intent: Intent) => {
+    if (!activeAccount || !clickRef) {
+      setBridgeError('Please connect your wallet first');
+      return;
+    }
+
+    if (!ethRecipient.match(/^0x[a-fA-F0-9]{40}$/)) {
+      setBridgeError('Please enter a valid Ethereum address (0x...)');
+      return;
+    }
+
+    try {
+      setExecutingId(intent.id);
+      setBridgeError(null);
+
+      let deployJSON: string;
+      const useRealBridge = canUseRealBridge(intent);
+
+      if (useRealBridge) {
+        // REAL BRIDGE: Call execute_intent_with_burn() which calls TokenFactory.burn()
+        // This will actually burn CEP-18 tokens and unlock on Ethereum!
+        deployJSON = await contractService.createExecuteWithBurnDeploy(
+          activeAccount.public_key,
+          intent.id,
+          intent.fromToken,
+          ethRecipient
+        );
+      } else {
+        // DEMO MODE: Call execute_intent() which just emits an event
+        // Use this for testing without actual tokens
+        deployJSON = await contractService.createExecuteIntentDeploy(
+          activeAccount.public_key,
+          intent.id,
+          ethRecipient
+        );
+      }
+
+      // Send via CSPR.click - user signs with their wallet
+      const result = await clickRef.send(deployJSON, activeAccount.public_key);
+
+      if (result?.deployHash) {
+        setBridgeTxHash(result.deployHash);
+
+        // Update intent status to Executing with the execution tx hash
+        const updatedIntents = intents.map(i =>
+          i.id === intent.id ? {
+            ...i,
+            status: 'Executing' as const,
+            executeTxHash: result.deployHash,
+            ethRecipient: ethRecipient,
+            realBridge: useRealBridge
+          } : i
+        );
+        setIntents(updatedIntents);
+        localStorage.setItem('casperlink_user_intents', JSON.stringify(updatedIntents));
+
+        // Close modal after success
+        setTimeout(() => {
+          setShowBridgeModal(null);
+          setBridgeTxHash(null);
+          setEthRecipient('');
+        }, 3000);
+      }
+    } catch (error) {
+      console.error('Execution failed:', error);
+      setBridgeError((error as Error).message || 'Failed to execute intent');
+    } finally {
+      setExecutingId(null);
     }
   };
 
@@ -88,6 +321,10 @@ export default function IntentsComponent() {
         return 'bg-green-500/20 text-green-400 border-green-500/30';
       case 'Executing':
         return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
+      case 'Ready':
+        return 'bg-purple-500/20 text-purple-400 border-purple-500/30';
+      case 'Watching':
+        return 'bg-orange-500/20 text-orange-400 border-orange-500/30';
       case 'Pending':
         return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
       default:
@@ -101,6 +338,10 @@ export default function IntentsComponent() {
         return '✓';
       case 'Executing':
         return '⟳';
+      case 'Ready':
+        return '⚡';
+      case 'Watching':
+        return '👁';
       case 'Pending':
         return '○';
       default:
@@ -172,16 +413,36 @@ export default function IntentsComponent() {
                         </span>
                       </div>
                       <p className="text-gray-400 text-sm mb-1">Amount: {intent.amount}</p>
+                      {intent.fromChain && intent.toChain && (
+                        <p className="text-gray-400 text-sm mb-1">
+                          Route: {intent.fromChain} → {intent.toChain}
+                        </p>
+                      )}
                       {intent.price && (
                         <p className="text-gray-400 text-sm">Price: {intent.price}</p>
                       )}
                       {intent.slippage !== undefined && (
                         <p className="text-gray-400 text-sm">Slippage Protection: {intent.slippage}%</p>
                       )}
+                      {/* Smart Price Execution Info */}
+                      {intent.hasPriceCondition && intent.targetPrice && (
+                        <div className="mt-2 p-2 bg-orange-500/10 rounded-lg border border-orange-500/20">
+                          <p className="text-xs text-orange-400">
+                            <span className="font-medium">Price Condition:</span>{' '}
+                            Execute when {intent.priceToken} price{' '}
+                            {intent.priceCondition === 'gte' ? '≥' : '≤'} ${intent.targetPrice.toFixed(2)}
+                          </p>
+                          {currentPrices[intent.priceToken || ''] && (
+                            <p className="text-xs text-gray-400 mt-1">
+                              Current: ${currentPrices[intent.priceToken || ''].toFixed(2)}
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </div>
 
-                    <div className="text-right">
-                      <p className="text-xs text-gray-500 mb-2">{formatDate(intent.createdAt)}</p>
+                    <div className="text-right flex flex-col items-end gap-2">
+                      <p className="text-xs text-gray-500">{formatDate(intent.createdAt)}</p>
                       <p className="text-xs text-gray-600 font-mono break-all">
                         ID: {intent.id}
                       </p>
@@ -190,20 +451,105 @@ export default function IntentsComponent() {
                           href={`https://testnet.cspr.live/deploy/${intent.txHash}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-xs text-red-400 hover:text-red-300 mt-2 inline-flex items-center gap-1"
+                          className="text-xs text-red-400 hover:text-red-300 inline-flex items-center gap-1"
                         >
                           <span>✓ Verified on Explorer</span>
                           <span>→</span>
                         </a>
                       )}
+                      {/* Execute Button for Ready intents */}
+                      {intent.status === 'Ready' && (
+                        <div className="flex flex-col gap-2 mt-2">
+                          {/* On-chain execution button - creates real transaction */}
+                          {canUseOnChainExecution(intent) && (
+                            <button
+                              onClick={() => {
+                                setShowBridgeModal(intent.id);
+                                setBridgeError(null);
+                              }}
+                              className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition inline-flex items-center gap-2"
+                            >
+                              🔥 Execute On-Chain
+                            </button>
+                          )}
+                          {/* Fallback: external bridge link */}
+                          <a
+                            href={getBridgeUrl()}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={() => markAsBridging(intent)}
+                            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium transition inline-flex items-center gap-2"
+                          >
+                            ⚡ Use CSPRBridge →
+                          </a>
+                        </div>
+                      )}
+                      {/* Confirm completion for Executing intents */}
+                      {intent.status === 'Executing' && (
+                        <button
+                          onClick={() => markAsCompleted(intent.id)}
+                          className="mt-2 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-medium transition"
+                        >
+                          ✓ Mark as Completed
+                        </button>
+                      )}
                     </div>
                   </div>
 
-                  {intent.status === 'Executing' && (
+                  {/* Watching Status Info */}
+                  {intent.status === 'Watching' && (
                     <div className="mt-4 pt-4 border-t border-white/10">
                       <div className="flex items-center gap-2">
-                        <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-blue-400"></div>
-                        <p className="text-sm text-blue-400">Processing cross-chain transaction...</p>
+                        <div className="animate-pulse h-2 w-2 bg-orange-400 rounded-full"></div>
+                        <p className="text-sm text-orange-400">
+                          Monitoring price... Will become ready when condition is met
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Ready Status Info */}
+                  {intent.status === 'Ready' && (
+                    <div className="mt-4 pt-4 border-t border-white/10">
+                      <div className="flex items-center gap-2 mb-3">
+                        <span className="text-purple-400">⚡</span>
+                        <p className="text-sm text-purple-400">
+                          Price condition met! Execute the bridge with these parameters:
+                        </p>
+                      </div>
+                      <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-3 text-xs space-y-1">
+                        <p><span className="text-gray-400">From:</span> <span className="text-white font-medium">{getBridgeParams(intent).fromChain}</span></p>
+                        <p><span className="text-gray-400">To:</span> <span className="text-white font-medium">{getBridgeParams(intent).toChain}</span></p>
+                        <p><span className="text-gray-400">Token:</span> <span className="text-white font-medium">{getBridgeParams(intent).token}</span></p>
+                        <p><span className="text-gray-400">Amount:</span> <span className="text-white font-medium">{getBridgeParams(intent).amount}</span></p>
+                      </div>
+                    </div>
+                  )}
+
+                  {intent.status === 'Executing' && (
+                    <div className="mt-4 pt-4 border-t border-white/10">
+                      <div className="flex flex-col gap-2">
+                        <div className="flex items-center gap-2">
+                          <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-blue-400"></div>
+                          <p className="text-sm text-blue-400">Bridge transaction in progress...</p>
+                        </div>
+                        <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3 text-xs space-y-1">
+                          <p><span className="text-gray-400">From:</span> <span className="text-white font-medium">{getBridgeParams(intent).fromChain}</span></p>
+                          <p><span className="text-gray-400">To:</span> <span className="text-white font-medium">{getBridgeParams(intent).toChain}</span></p>
+                          <p><span className="text-gray-400">Token:</span> <span className="text-white font-medium">{getBridgeParams(intent).token}</span></p>
+                          <p><span className="text-gray-400">Amount:</span> <span className="text-white font-medium">{getBridgeParams(intent).amount}</span></p>
+                        </div>
+                        <p className="text-xs text-gray-400">
+                          Complete the bridge on CSPRBridge, then click &quot;Mark as Completed&quot;.
+                        </p>
+                        <a
+                          href={getBridgeUrl()}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-blue-400 hover:text-blue-300 underline"
+                        >
+                          Open CSPRBridge again →
+                        </a>
                       </div>
                     </div>
                   )}
@@ -211,18 +557,26 @@ export default function IntentsComponent() {
               ))}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mt-8">
               <div className="glass-card rounded-xl p-4">
                 <p className="text-yellow-400 font-bold mb-2">○ Pending</p>
-                <p className="text-sm text-gray-400">Intent created, awaiting Oracle price confirmation</p>
+                <p className="text-sm text-gray-400">Intent created, no price condition</p>
+              </div>
+              <div className="glass-card rounded-xl p-4">
+                <p className="text-orange-400 font-bold mb-2">👁 Watching</p>
+                <p className="text-sm text-gray-400">Monitoring price for target condition</p>
+              </div>
+              <div className="glass-card rounded-xl p-4">
+                <p className="text-purple-400 font-bold mb-2">⚡ Ready</p>
+                <p className="text-sm text-gray-400">Price condition met, ready to execute</p>
               </div>
               <div className="glass-card rounded-xl p-4">
                 <p className="text-blue-400 font-bold mb-2">⟳ Executing</p>
-                <p className="text-sm text-gray-400">Cross-chain transaction in progress via bridges</p>
+                <p className="text-sm text-gray-400">Bridge transaction in progress</p>
               </div>
               <div className="glass-card rounded-xl p-4">
                 <p className="text-green-400 font-bold mb-2">✓ Completed</p>
-                <p className="text-sm text-gray-400">Intent successfully executed and verified on-chain</p>
+                <p className="text-sm text-gray-400">Successfully bridged on-chain</p>
               </div>
             </div>
 
@@ -233,6 +587,149 @@ export default function IntentsComponent() {
               </p>
             </div>
           </>
+        )}
+
+        {/* On-Chain Execution Modal */}
+        {showBridgeModal && (
+          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+            <div className="glass-card rounded-2xl p-6 max-w-md w-full">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xl font-bold">Execute Intent On-Chain</h3>
+                <button
+                  onClick={() => {
+                    setShowBridgeModal(null);
+                    setBridgeError(null);
+                    setBridgeTxHash(null);
+                  }}
+                  className="text-gray-400 hover:text-white"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {(() => {
+                const intent = intents.find(i => i.id === showBridgeModal);
+                if (!intent) return null;
+
+                return (
+                  <div className="space-y-4">
+                    {canUseRealBridge(intent) ? (
+                      <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3">
+                        <p className="text-sm text-green-400 mb-2 font-bold">
+                          🔥 REAL BRIDGE EXECUTION!
+                        </p>
+                        <p className="text-xs text-green-300 mb-2">
+                          This will burn {intent.amount} {intent.fromToken} CEP-18 tokens on Casper.
+                          CSPRBridge relayers will unlock ERC-20 tokens on Ethereum Sepolia!
+                        </p>
+                        <div className="text-xs space-y-1">
+                          <p><span className="text-gray-400">Token:</span> <span className="text-white">{intent.fromToken}</span></p>
+                          <p><span className="text-gray-400">Amount:</span> <span className="text-white">{intent.amount}</span></p>
+                          <p><span className="text-gray-400">Method:</span> <span className="text-white font-mono text-[10px]">execute_intent_with_burn()</span></p>
+                          <p><span className="text-gray-400">Calls:</span> <span className="text-white font-mono text-[10px]">TokenFactory.burn()</span></p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
+                        <p className="text-sm text-blue-400 mb-2">
+                          🔥 Demo Mode - On-Chain Transaction
+                        </p>
+                        <p className="text-xs text-blue-300 mb-2">
+                          Creates a real transaction on Casper. For actual bridging, use USDC, WETH, or LINK tokens.
+                        </p>
+                        <div className="text-xs space-y-1">
+                          <p><span className="text-gray-400">Intent:</span> <span className="text-white">{intent.fromToken} → {intent.toToken}</span></p>
+                          <p><span className="text-gray-400">Amount:</span> <span className="text-white">{intent.amount}</span></p>
+                          <p><span className="text-gray-400">Route:</span> <span className="text-white">{intent.fromChain} → {intent.toChain}</span></p>
+                          <p><span className="text-gray-400">Method:</span> <span className="text-white font-mono text-[10px]">execute_intent()</span></p>
+                        </div>
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="block text-sm font-medium mb-2">
+                        Destination Address (Ethereum)
+                      </label>
+                      <input
+                        type="text"
+                        value={ethRecipient}
+                        onChange={(e) => setEthRecipient(e.target.value)}
+                        placeholder="0x..."
+                        className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-3 font-mono text-sm"
+                      />
+                      <p className="text-xs text-gray-400 mt-1">
+                        Enter the address to receive tokens on the destination chain
+                      </p>
+                    </div>
+
+                    {bridgeError && (
+                      <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
+                        <p className="text-sm text-red-400">{bridgeError}</p>
+                      </div>
+                    )}
+
+                    {bridgeTxHash && (
+                      <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3">
+                        <p className="text-sm text-green-400 mb-2">✅ Transaction submitted to Casper Testnet!</p>
+                        <a
+                          href={`https://testnet.cspr.live/deploy/${bridgeTxHash}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-green-300 hover:text-green-200 underline break-all"
+                        >
+                          View on Explorer: {bridgeTxHash.slice(0, 20)}...
+                        </a>
+                      </div>
+                    )}
+
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => {
+                          setShowBridgeModal(null);
+                          setBridgeError(null);
+                        }}
+                        className="flex-1 px-4 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-medium transition"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={() => executeOnChain(intent)}
+                        disabled={executingId === intent.id || !ethRecipient}
+                        className="flex-1 px-4 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {executingId === intent.id ? (
+                          <span className="flex items-center justify-center gap-2">
+                            <span className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></span>
+                            Signing...
+                          </span>
+                        ) : (
+                          '🔥 Sign & Execute'
+                        )}
+                      </button>
+                    </div>
+
+                    <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
+                      <p className="text-xs text-blue-300">
+                        <strong>How it works:</strong> {canUseRealBridge(intent) ? (
+                          <>
+                            IntentParser calls <code className="bg-black/30 px-1 rounded">TokenFactory.burn()</code> to burn CEP-18 tokens.
+                            CSPRBridge relayers detect the burn event and unlock ERC-20 tokens on Ethereum Sepolia within minutes.
+                            Your tokens will arrive at the specified Ethereum address automatically!
+                          </>
+                        ) : (
+                          <>
+                            This calls <code className="bg-black/30 px-1 rounded">execute_intent</code> which emits an event on-chain.
+                            Your wallet will prompt you to sign the transaction.
+                            The tx hash will be visible on Casper Explorer.
+                          </>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
         )}
       </div>
     </div>

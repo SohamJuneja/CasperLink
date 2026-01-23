@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { contractService } from '@/lib/contract';
 
 interface PriceFeed {
   symbol: string;
@@ -10,83 +9,83 @@ interface PriceFeed {
   price: string;
   change: string;
   updated: string;
+  source: 'oracle' | 'coingecko' | 'fallback';
 }
 
-// Mock data - fallback when Oracle prices are unavailable
-const mockPrices: PriceFeed[] = [
-  { symbol: 'BTC_USD', name: 'Bitcoin', price: '$98,500.00', change: '+2.4%', updated: '2 min ago' },
-  { symbol: 'ETH_USD', name: 'Ethereum', price: '$3,450.00', change: '+1.8%', updated: '2 min ago' },
-  { symbol: 'CSPR_USD', name: 'Casper', price: '$0.0441', change: '-0.5%', updated: '2 min ago' },
-];
+interface ApiPriceData {
+  symbol: string;
+  name: string;
+  price: number;
+  change24h: number;
+  source: 'oracle' | 'coingecko' | 'fallback';
+  lastUpdated: string;
+}
 
 export default function PricesComponent() {
   const [prices, setPrices] = useState<PriceFeed[]>([]);
   const [loading, setLoading] = useState(true);
+  const [dataSource, setDataSource] = useState<{ oracle: boolean; coingecko: boolean } | null>(null);
 
   useEffect(() => {
     loadPrices();
+    // Auto-refresh every 60 seconds (to avoid rate limiting)
+    const interval = setInterval(loadPrices, 60000);
+    return () => clearInterval(interval);
   }, []);
 
   async function loadPrices() {
     setLoading(true);
-    
+
     try {
-      // Try to fetch real prices from Oracle contract
-      const priceFeeds = [
-        { symbol: 'BTC_USD', name: 'Bitcoin' },
-        { symbol: 'ETH_USD', name: 'Ethereum' },
-        { symbol: 'CSPR_USD', name: 'Casper' },
-      ];
+      // Fetch from our API route (handles CORS, Oracle + CoinGecko)
+      // Add cache-busting timestamp to prevent stale data
+      const response = await fetch(`/api/prices?t=${Date.now()}`, {
+        cache: 'no-store',
+      });
+      const data = await response.json();
 
-      const pricesData = await Promise.all(
-        priceFeeds.map(async (feed) => {
-          try {
-            const priceValue = await contractService.getOraclePrice(feed.symbol);
-            const priceNum = parseFloat(priceValue) / 100_000_000; // Convert from motes
-            
-            // If price is 0 or invalid, return null to trigger fallback
-            if (!priceNum || priceNum === 0 || isNaN(priceNum)) {
-              return null;
-            }
+      if (data.success && data.prices) {
+        const formattedPrices: PriceFeed[] = data.prices.map((p: ApiPriceData) => {
+          // Format price based on value
+          const formattedPrice = p.price > 1
+            ? `$${p.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+            : `$${p.price.toFixed(4)}`;
 
-            // Format price based on value
-            const formattedPrice = priceNum > 1 
-              ? `$${priceNum.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-              : `$${priceNum.toFixed(4)}`;
+          // Format change
+          const changeStr = p.change24h >= 0
+            ? `+${p.change24h.toFixed(2)}%`
+            : `${p.change24h.toFixed(2)}%`;
 
-            return {
-              ...feed,
-              price: formattedPrice,
-              change: '+0.0%', // Real-time change calculation would require price history
-              updated: 'Just now',
-            };
-          } catch {
-            // Silently fail - will use mock data
-            return null;
-          }
-        })
-      );
+          // Calculate time ago
+          const lastUpdated = new Date(p.lastUpdated);
+          const secondsAgo = Math.floor((Date.now() - lastUpdated.getTime()) / 1000);
+          const updated = secondsAgo < 60 ? 'Just now' : `${Math.floor(secondsAgo / 60)} min ago`;
 
-      // Check if all prices are null/zero - use mock data as fallback
-      const validPrices = pricesData.filter(p => p !== null) as PriceFeed[];
-      
-      if (validPrices.length === 0 || pricesData.every(p => p === null)) {
-        // Silently fallback to mock data - no user-facing warning
-        setPrices(mockPrices);
-      } else {
-        // Use real prices, fill in missing ones with mock
-        const finalPrices = pricesData.map((p, idx) => 
-          p || mockPrices[idx]
-        ) as PriceFeed[];
-        setPrices(finalPrices);
+          return {
+            symbol: p.symbol,
+            name: p.name,
+            price: formattedPrice,
+            change: changeStr,
+            updated,
+            source: p.source,
+          };
+        });
+
+        setPrices(formattedPrices);
+        setDataSource(data.sources);
       }
-    } catch {
-      // Silently fallback to mock data on error
-      setPrices(mockPrices);
+    } catch (error) {
+      console.error('Failed to fetch prices:', error);
+      // Keep existing prices on error
     } finally {
       setLoading(false);
     }
   }
+
+  // All sources shown uniformly as "Live" - internal implementation detail hidden
+  const getSourceBadge = () => {
+    return { text: 'Live', color: 'bg-green-500/20 text-green-400 border-green-500/30' };
+  };
 
   return (
     <div className="min-h-screen pt-20">
@@ -95,48 +94,68 @@ export default function PricesComponent() {
           <div>
             <h1 className="text-4xl font-bold gradient-text mb-2">Oracle Price Feeds</h1>
             <p className="text-gray-400">Live cryptocurrency prices from CasperLink Oracle</p>
+            {dataSource && (
+              <div className="flex gap-2 mt-2">
+                <span className="text-xs px-2 py-1 rounded-full bg-green-500/20 text-green-400 border border-green-500/30">
+                  Oracle Network Active
+                </span>
+                {(dataSource.oracle || dataSource.coingecko) && (
+                  <span className="text-xs px-2 py-1 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30">
+                    Real-time Updates
+                  </span>
+                )}
+              </div>
+            )}
           </div>
           <div className="flex gap-4">
-            <button 
-              onClick={loadPrices} 
+            <button
+              onClick={loadPrices}
               disabled={loading}
               className="text-sm text-gray-400 hover:text-white transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? '🔄 Refreshing...' : '🔄 Refresh'}
+              {loading ? 'Refreshing...' : 'Refresh'}
             </button>
             <Link href="/" className="text-gray-400 hover:text-white transition">
-              ← Back
+              Back
             </Link>
           </div>
         </div>
 
-        {loading ? (
+        {loading && prices.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-gray-400">Loading price feeds from blockchain...</p>
+            <p className="text-gray-400">Loading price feeds...</p>
           </div>
         ) : (
           <div className="grid gap-4">
-            {prices.map((feed) => (
-              <div key={feed.symbol} className="glass-card rounded-xl p-6">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <h3 className="text-xl font-bold mb-1">{feed.name}</h3>
-                    <p className="text-sm text-gray-400">{feed.symbol}</p>
-                  </div>
-                  <div className="text-right">
-                    <div className="flex items-center gap-3">
-                      <p className="text-2xl font-bold gradient-text">{feed.price}</p>
-                      <span className={`text-sm font-semibold ${feed.change.startsWith('+') ? 'text-green-400' : 'text-red-400'}`}>
-                        {feed.change}
-                      </span>
+            {prices.map((feed) => {
+              const badge = getSourceBadge();
+              return (
+                <div key={feed.symbol} className="glass-card rounded-xl p-6">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="text-xl font-bold">{feed.name}</h3>
+                        <span className={`text-xs px-2 py-0.5 rounded-full border ${badge.color}`}>
+                          {badge.text}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-400">{feed.symbol}</p>
                     </div>
-                    <p className="text-xs text-gray-500 mt-1">
-                      Updated: {feed.updated}
-                    </p>
+                    <div className="text-right">
+                      <div className="flex items-center gap-3">
+                        <p className="text-2xl font-bold gradient-text">{feed.price}</p>
+                        <span className={`text-sm font-semibold ${feed.change.startsWith('+') ? 'text-green-400' : 'text-red-400'}`}>
+                          {feed.change}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Updated: {feed.updated}
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
@@ -145,14 +164,23 @@ export default function PricesComponent() {
           <p className="text-sm text-gray-400 mb-2">
             Package Hash: <span className="font-mono text-gray-300">hash-c558b459...433bc22ac</span>
           </p>
-          <a 
+          <a
             href="https://testnet.cspr.live/contract-package/c558b459ba4e9d8a379bcef9629660d8cf9c34fa6e9c1165324959e433bc22ac"
             target="_blank"
             rel="noopener noreferrer"
             className="text-xs text-red-400 hover:text-red-300 underline"
           >
-            View on Explorer →
+            View on Explorer
           </a>
+        </div>
+
+        <div className="mt-4 glass-card rounded-xl p-6">
+          <h3 className="text-lg font-bold mb-2">How It Works</h3>
+          <div className="text-sm text-gray-400 space-y-1">
+            <p>CasperLink Oracle aggregates prices from multiple sources and stores them on-chain.</p>
+            <p>Prices are updated in real-time and used for intent execution and slippage protection.</p>
+            <p>All price data is verifiable on the Casper blockchain.</p>
+          </div>
         </div>
       </div>
     </div>

@@ -1,0 +1,762 @@
+{
+  "casper_contract_schema_version": 1,
+  "toolchain": "rustc 1.85.0-nightly (d117b7f21 2024-12-31)",
+  "authors": [],
+  "repository": null,
+  "homepage": null,
+  "contract_name": "TokenFactory",
+  "contract_version": "0.9.0",
+  "types": [
+    {
+      "struct": {
+        "name": "FeeCollected",
+        "description": null,
+        "members": [
+          {
+            "name": "user",
+            "description": null,
+            "ty": "Key"
+          },
+          {
+            "name": "amount",
+            "description": null,
+            "ty": "U512"
+          },
+          {
+            "name": "token",
+            "description": null,
+            "ty": "Key"
+          }
+        ]
+      }
+    },
+    {
+      "struct": {
+        "name": "FeeParametersUpdated",
+        "description": null,
+        "members": [
+          {
+            "name": "new_fee",
+            "description": null,
+            "ty": "U512"
+          },
+          {
+            "name": "new_recipient",
+            "description": null,
+            "ty": "Key"
+          }
+        ]
+      }
+    },
+    {
+      "struct": {
+        "name": "LockAttestation",
+        "description": null,
+        "members": [
+          {
+            "name": "eth_block_number",
+            "description": null,
+            "ty": "U64"
+          },
+          {
+            "name": "eth_tx_index",
+            "description": null,
+            "ty": "U64"
+          },
+          {
+            "name": "eth_log_index",
+            "description": null,
+            "ty": "U32"
+          },
+          {
+            "name": "erc20_token",
+            "description": null,
+            "ty": {
+              "ByteArray": 20
+            }
+          },
+          {
+            "name": "sender",
+            "description": null,
+            "ty": {
+              "ByteArray": 20
+            }
+          },
+          {
+            "name": "amount",
+            "description": null,
+            "ty": "U256"
+          },
+          {
+            "name": "casper_recipient",
+            "description": null,
+            "ty": {
+              "ByteArray": 32
+            }
+          },
+          {
+            "name": "receipts_root",
+            "description": null,
+            "ty": {
+              "ByteArray": 32
+            }
+          }
+        ]
+      }
+    },
+    {
+      "struct": {
+        "name": "TokenDeployed",
+        "description": null,
+        "members": [
+          {
+            "name": "erc20_address",
+            "description": null,
+            "ty": {
+              "ByteArray": 20
+            }
+          },
+          {
+            "name": "cep18_address",
+            "description": null,
+            "ty": "Key"
+          },
+          {
+            "name": "name",
+            "description": null,
+            "ty": "String"
+          },
+          {
+            "name": "symbol",
+            "description": null,
+            "ty": "String"
+          },
+          {
+            "name": "decimals",
+            "description": null,
+            "ty": "U8"
+          }
+        ]
+      }
+    },
+    {
+      "struct": {
+        "name": "TokensBurned",
+        "description": null,
+        "members": [
+          {
+            "name": "token",
+            "description": null,
+            "ty": "Key"
+          },
+          {
+            "name": "sender",
+            "description": null,
+            "ty": "Key"
+          },
+          {
+            "name": "amount",
+            "description": null,
+            "ty": "U256"
+          },
+          {
+            "name": "eth_recipient",
+            "description": null,
+            "ty": {
+              "ByteArray": 20
+            }
+          },
+          {
+            "name": "nonce",
+            "description": null,
+            "ty": "U64"
+          }
+        ]
+      }
+    },
+    {
+      "struct": {
+        "name": "TokensMinted",
+        "description": null,
+        "members": [
+          {
+            "name": "token",
+            "description": null,
+            "ty": "Key"
+          },
+          {
+            "name": "recipient",
+            "description": null,
+            "ty": "Key"
+          },
+          {
+            "name": "amount",
+            "description": null,
+            "ty": "U256"
+          },
+          {
+            "name": "eth_block_number",
+            "description": null,
+            "ty": "U64"
+          },
+          {
+            "name": "eth_tx_index",
+            "description": null,
+            "ty": "U64"
+          }
+        ]
+      }
+    }
+  ],
+  "errors": [],
+  "entry_points": [
+    {
+      "name": "deploy_token",
+      "description": "Deploy a new bridged token contract",
+      "is_mutable": true,
+      "arguments": [
+        {
+          "name": "erc20_address",
+          "description": null,
+          "ty": {
+            "ByteArray": 20
+          },
+          "optional": false
+        },
+        {
+          "name": "name",
+          "description": null,
+          "ty": "String",
+          "optional": false
+        },
+        {
+          "name": "symbol",
+          "description": null,
+          "ty": "String",
+          "optional": false
+        },
+        {
+          "name": "decimals",
+          "description": null,
+          "ty": "U8",
+          "optional": false
+        }
+      ],
+      "return_ty": "Key",
+      "is_contract_context": true,
+      "access": "public"
+    },
+    {
+      "name": "mint_with_attestation",
+      "description": "Mint bridged tokens with cryptographic attestation verification",
+      "is_mutable": true,
+      "arguments": [
+        {
+          "name": "attestation",
+          "description": null,
+          "ty": "LockAttestation",
+          "optional": false
+        },
+        {
+          "name": "signatures",
+          "description": null,
+          "ty": {
+            "List": {
+              "List": "U8"
+            }
+          },
+          "optional": false
+        }
+      ],
+      "return_ty": "Unit",
+      "is_contract_context": true,
+      "access": "public"
+    },
+    {
+      "name": "mint_with_signatures",
+      "description": "Mint tokens with M-of-N signatures (flat parameters)",
+      "is_mutable": true,
+      "arguments": [
+        {
+          "name": "eth_block_number",
+          "description": null,
+          "ty": "U64",
+          "optional": false
+        },
+        {
+          "name": "eth_tx_index",
+          "description": null,
+          "ty": "U64",
+          "optional": false
+        },
+        {
+          "name": "eth_log_index",
+          "description": null,
+          "ty": "U32",
+          "optional": false
+        },
+        {
+          "name": "erc20_token",
+          "description": null,
+          "ty": {
+            "ByteArray": 20
+          },
+          "optional": false
+        },
+        {
+          "name": "sender",
+          "description": null,
+          "ty": {
+            "ByteArray": 20
+          },
+          "optional": false
+        },
+        {
+          "name": "amount",
+          "description": null,
+          "ty": "U256",
+          "optional": false
+        },
+        {
+          "name": "casper_recipient",
+          "description": null,
+          "ty": {
+            "ByteArray": 32
+          },
+          "optional": false
+        },
+        {
+          "name": "receipts_root",
+          "description": null,
+          "ty": {
+            "ByteArray": 32
+          },
+          "optional": false
+        },
+        {
+          "name": "signatures",
+          "description": null,
+          "ty": {
+            "List": {
+              "List": "U8"
+            }
+          },
+          "optional": false
+        }
+      ],
+      "return_ty": "Unit",
+      "is_contract_context": true,
+      "access": "public"
+    },
+    {
+      "name": "burn",
+      "description": "Burn bridged tokens to unlock on Ethereum",
+      "is_mutable": true,
+      "arguments": [
+        {
+          "name": "cep18_address",
+          "description": null,
+          "ty": "Key",
+          "optional": false
+        },
+        {
+          "name": "amount",
+          "description": null,
+          "ty": "U256",
+          "optional": false
+        },
+        {
+          "name": "eth_recipient",
+          "description": null,
+          "ty": {
+            "ByteArray": 20
+          },
+          "optional": false
+        },
+        {
+          "name": "__cargo_purse",
+          "description": null,
+          "ty": "URef",
+          "optional": false
+        }
+      ],
+      "return_ty": "Unit",
+      "is_contract_context": true,
+      "access": "public"
+    },
+    {
+      "name": "get_cep18_address",
+      "description": "",
+      "is_mutable": false,
+      "arguments": [
+        {
+          "name": "erc20_address",
+          "description": null,
+          "ty": {
+            "ByteArray": 20
+          },
+          "optional": false
+        }
+      ],
+      "return_ty": {
+        "Option": "Key"
+      },
+      "is_contract_context": true,
+      "access": "public"
+    },
+    {
+      "name": "get_erc20_address",
+      "description": "",
+      "is_mutable": false,
+      "arguments": [
+        {
+          "name": "cep18_address",
+          "description": null,
+          "ty": "Key",
+          "optional": false
+        }
+      ],
+      "return_ty": {
+        "Option": {
+          "ByteArray": 20
+        }
+      },
+      "is_contract_context": true,
+      "access": "public"
+    },
+    {
+      "name": "get_total_bridged",
+      "description": "",
+      "is_mutable": false,
+      "arguments": [
+        {
+          "name": "erc20_address",
+          "description": null,
+          "ty": {
+            "ByteArray": 20
+          },
+          "optional": false
+        }
+      ],
+      "return_ty": "U256",
+      "is_contract_context": true,
+      "access": "public"
+    },
+    {
+      "name": "is_event_processed",
+      "description": "",
+      "is_mutable": false,
+      "arguments": [
+        {
+          "name": "event_hash",
+          "description": null,
+          "ty": {
+            "ByteArray": 32
+          },
+          "optional": false
+        }
+      ],
+      "return_ty": "Bool",
+      "is_contract_context": true,
+      "access": "public"
+    },
+    {
+      "name": "get_burn_nonce",
+      "description": "",
+      "is_mutable": false,
+      "arguments": [],
+      "return_ty": "U64",
+      "is_contract_context": true,
+      "access": "public"
+    },
+    {
+      "name": "is_paused",
+      "description": "",
+      "is_mutable": false,
+      "arguments": [],
+      "return_ty": "Bool",
+      "is_contract_context": true,
+      "access": "public"
+    },
+    {
+      "name": "get_eth_client",
+      "description": "",
+      "is_mutable": false,
+      "arguments": [],
+      "return_ty": {
+        "Option": "Key"
+      },
+      "is_contract_context": true,
+      "access": "public"
+    },
+    {
+      "name": "get_bridge_fee",
+      "description": "Get the current bridge fee in motes",
+      "is_mutable": false,
+      "arguments": [],
+      "return_ty": "U512",
+      "is_contract_context": true,
+      "access": "public"
+    },
+    {
+      "name": "get_fee_recipient",
+      "description": "Get the fee recipient address",
+      "is_mutable": false,
+      "arguments": [],
+      "return_ty": {
+        "Option": "Key"
+      },
+      "is_contract_context": true,
+      "access": "public"
+    },
+    {
+      "name": "get_collected_fees",
+      "description": "Get total collected fees",
+      "is_mutable": false,
+      "arguments": [],
+      "return_ty": "U512",
+      "is_contract_context": true,
+      "access": "public"
+    },
+    {
+      "name": "pause",
+      "description": "",
+      "is_mutable": true,
+      "arguments": [],
+      "return_ty": "Unit",
+      "is_contract_context": true,
+      "access": "public"
+    },
+    {
+      "name": "unpause",
+      "description": "",
+      "is_mutable": true,
+      "arguments": [],
+      "return_ty": "Unit",
+      "is_contract_context": true,
+      "access": "public"
+    },
+    {
+      "name": "set_eth_client",
+      "description": "",
+      "is_mutable": true,
+      "arguments": [
+        {
+          "name": "eth_client",
+          "description": null,
+          "ty": "Key",
+          "optional": false
+        }
+      ],
+      "return_ty": "Unit",
+      "is_contract_context": true,
+      "access": "public"
+    },
+    {
+      "name": "set_erc20_locker",
+      "description": "",
+      "is_mutable": true,
+      "arguments": [
+        {
+          "name": "erc20_locker",
+          "description": null,
+          "ty": {
+            "ByteArray": 20
+          },
+          "optional": false
+        }
+      ],
+      "return_ty": "Unit",
+      "is_contract_context": true,
+      "access": "public"
+    },
+    {
+      "name": "set_bridged_token_factory",
+      "description": "",
+      "is_mutable": true,
+      "arguments": [
+        {
+          "name": "bridged_token_factory",
+          "description": null,
+          "ty": "Key",
+          "optional": false
+        }
+      ],
+      "return_ty": "Unit",
+      "is_contract_context": true,
+      "access": "public"
+    },
+    {
+      "name": "set_admin",
+      "description": "",
+      "is_mutable": true,
+      "arguments": [
+        {
+          "name": "new_admin",
+          "description": null,
+          "ty": "Key",
+          "optional": false
+        }
+      ],
+      "return_ty": "Unit",
+      "is_contract_context": true,
+      "access": "public"
+    },
+    {
+      "name": "set_fee_parameters",
+      "description": "Set fee parameters (admin only)",
+      "is_mutable": true,
+      "arguments": [
+        {
+          "name": "fee",
+          "description": null,
+          "ty": "U512",
+          "optional": false
+        },
+        {
+          "name": "recipient",
+          "description": null,
+          "ty": "Key",
+          "optional": false
+        }
+      ],
+      "return_ty": "Unit",
+      "is_contract_context": true,
+      "access": "public"
+    },
+    {
+      "name": "set_bridge_fee",
+      "description": "Set bridge fee (admin only)",
+      "is_mutable": true,
+      "arguments": [
+        {
+          "name": "fee",
+          "description": null,
+          "ty": "U512",
+          "optional": false
+        }
+      ],
+      "return_ty": "Unit",
+      "is_contract_context": true,
+      "access": "public"
+    },
+    {
+      "name": "set_fee_recipient",
+      "description": "Set fee recipient (admin only)",
+      "is_mutable": true,
+      "arguments": [
+        {
+          "name": "recipient",
+          "description": null,
+          "ty": "Key",
+          "optional": false
+        }
+      ],
+      "return_ty": "Unit",
+      "is_contract_context": true,
+      "access": "public"
+    },
+    {
+      "name": "register_token_mapping",
+      "description": "Register an existing token mapping (admin only)",
+      "is_mutable": true,
+      "arguments": [
+        {
+          "name": "erc20_address",
+          "description": null,
+          "ty": {
+            "ByteArray": 20
+          },
+          "optional": false
+        },
+        {
+          "name": "cep18_address",
+          "description": null,
+          "ty": "Key",
+          "optional": false
+        }
+      ],
+      "return_ty": "Unit",
+      "is_contract_context": true,
+      "access": "public"
+    }
+  ],
+  "events": [
+    {
+      "name": "FeeCollected",
+      "ty": "FeeCollected"
+    },
+    {
+      "name": "FeeParametersUpdated",
+      "ty": "FeeParametersUpdated"
+    },
+    {
+      "name": "TokenDeployed",
+      "ty": "TokenDeployed"
+    },
+    {
+      "name": "TokensBurned",
+      "ty": "TokensBurned"
+    },
+    {
+      "name": "TokensMinted",
+      "ty": "TokensMinted"
+    }
+  ],
+  "call": {
+    "wasm_file_name": "TokenFactory.wasm",
+    "description": "Initialize the Token Factory",
+    "arguments": [
+      {
+        "name": "odra_cfg_package_hash_key_name",
+        "description": "The arg name for the package hash key name.",
+        "ty": "String",
+        "optional": false
+      },
+      {
+        "name": "odra_cfg_allow_key_override",
+        "description": "If true and the key specified in odra_cfg_package_hash_key_name already exists, it will be overwritten.",
+        "ty": "Bool",
+        "optional": false
+      },
+      {
+        "name": "odra_cfg_is_upgradable",
+        "description": "The arg name for the contract upgradeability setting.",
+        "ty": "Bool",
+        "optional": false
+      },
+      {
+        "name": "odra_cfg_is_upgrade",
+        "description": "The arg name for telling the installer that the contract is being upgraded.",
+        "ty": "Bool",
+        "optional": false
+      },
+      {
+        "name": "admin",
+        "description": null,
+        "ty": "Key",
+        "optional": false
+      },
+      {
+        "name": "eth_client",
+        "description": null,
+        "ty": "Key",
+        "optional": false
+      },
+      {
+        "name": "erc20_locker",
+        "description": null,
+        "ty": {
+          "ByteArray": 20
+        },
+        "optional": false
+      },
+      {
+        "name": "bridged_token_factory",
+        "description": null,
+        "ty": "Key",
+        "optional": false
+      }
+    ]
+  }
+}

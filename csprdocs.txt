@@ -1,0 +1,1899 @@
+CSPR.click is a unified SDK that simplifies Web3 application onboarding by offering seamless integration with all wallets, facilitating easy user transitions between Web3 apps, and providing developers and users a consistent and secure interface for managing Web3 assets and interactions.
+
+This documentation compiles important guidelines on how to use the CSPR.click SDKs.
+
+Components
+Wallet Aggregator. One integration for seamless compatibility with every Casper wallet.
+
+Social Logins. Simplify onboarding with instant access via Google, Apple, and more.
+
+Fiat On-Ramps. Purchase CSPR instantly using your card or wire transfer.
+
+CSPR.cloud Proxy. Connect directly to CSPR.cloud APIs — no backend required.
+
+Reference
+To get familiar with CSPR.click, we recommend that you read these documents:
+
+Overview
+Learn about the general technical aspects of CSPR.click SDK, and how it works.
+
+Getting started
+Learn the basic concepts while creating a dApp from zero with CSPR.click React template.
+
+Support
+If you have any questions or run into any issues while using the CSPR.click SDKs, you can find help in the CSPR.click Developer Community. Here you can connect and get help from other developers.
+
+Legal
+By using CSPR.click, you agree to our Developer Terms of Service and acknowledge that you have read our Privacy Policy.
+
+
+Overview
+In any web application that integrates CSPR.click you'll be using the Core JS SDK. It provides the essential functionality to interact with wallets and the CSPR.click servers. Through it, you'll request a connection with a wallet to start a user session, and ask the user to sign a transaction or a message. You'll get a complete graphical interface that manages for you the interactions with the user to perform the account management and the signature requests operations.
+
+Get your application Id
+To initialize CSPR.click library, you need an appId for your application. By default, our examples use the csprclick-template identifier. You may use this value to try CSPR.click out and start developing your application.
+
+Note, though, that this identifier is only valid for development on localhost. Before you push your application to a server, you must get your own appId on console.cspr.build.
+
+Supported wallets
+CSPR.click supports every wallet built for the Casper ecosystem.
+
+Wallet
+Provider key
+Name
+Casper Wallet logo
+
+casper-wallet
+
+Casper Wallet
+
+Ledger logo
+
+ledger
+
+Ledger
+
+WalletConnect logo
+
+walletconnect
+
+WalletConnect
+
+Metamask logo
+
+metamask-snap
+
+Metamask (Snap)
+
+In your application, you can decide which wallets you want to enable. To do so, set accordingly the array of providers in the CsprClickInitOptions initialization object.
+
+
+Copy
+const clickOptions: CsprClickInitOptions = {
+    appName: 'CSPR.playground',
+    appId: 'csprclick-template',
+    contentMode: CONTENT_MODE.IFRAME,
+    providers: [
+        WALLET_KEYS.CASPER_WALLET,
+        WALLET_KEYS.LEDGER,
+        WALLET_KEYS.METAMASK_SNAP,
+    ],
+};
+WalletConnect
+WalletConnect is a protocol that provides a secure and convenient way for users to interact with decentralized applications. CSPR.click supports WalletConnect as a provider, allowing users to connect their WalletConnect-compatible wallets to your application.
+
+To use WalletConnect with CSPR.click, you need to have a WalletConnect project ID. You can get one by creating a project on the WalletConnect Cloud.
+
+Once you have your project ID, you can add it to your CSPR.click initialization options like this:
+
+
+Copy
+const clickOptions: CsprClickInitOptions = {
+    appName: 'CSPR.playground',
+    appId: 'csprclick-template',
+    contentMode: CONTENT_MODE.IFRAME,
+    providers: [
+        WALLET_KEYS.CASPER_WALLET,
+        WALLET_KEYS.LEDGER,
+        WALLET_KEYS.METAMASK_SNAP,
+        WALLET_KEYS.WALLET_CONNECT,
+    ],
+    walletConnect: {
+        relayUrl: 'wss://relay.walletconnect.com',
+        projectId: '6cdf3...9cc4d'
+    }
+};
+
+Getting started
+This page guides you through the steps to create a new React application for your project with CSPR.click UI SDK integrated and ready to use.
+
+If you want to integrate CSPR.click JS SDK into your existing React 18 application, go to the React section. If you're not using React 19, or you don't use React in your application, you can also integrate CSPR.click following the steps described in the Javascript section.
+
+Create a new React project
+To create a new React project with CSPR.click ready to use, write the following command in a terminal session:
+
+
+Copy
+npx create-react-app my-casper-app --template @make-software/csprclick-react
+Next, go to the newly created project directory and run the app:
+
+
+Copy
+cd my-casper-app
+npm start
+Your new app will open in your browser. If it doesn't, browse to the URL: http://localhost:3000.
+
+
+Your new application
+Adjust the initialization options
+Your new project comes with some default initialization options. You'll need to review them and adjust some.
+
+Open the file src/index.tsx and locate the definition of the clickOptions variable. It'll look similar to this:
+
+
+Copy
+import { CONTENT_MODE } from '@make-software/csprclick-core-types';
+
+const clickOptions: CsprClickInitOptions = {
+    appName: 'CSPR.app',
+    appId: 'csprclick-template',
+    contentMode: CONTENT_MODE.IFRAME,
+    providers: [
+        'casper-wallet',
+        'ledger',
+        'casper-signer',
+    ]
+};
+You can use the default csprclick-template application identifier while you're working locally on your application. But to upload your new project to a server, you'll need to get your own application id.
+
+Update the properties according to your needs. Read more about the CsprClickInitOptions type in the Core JS SDK reference.
+
+These options are sent to CSPR.click through the <ClickProvider> component that wraps your main application component:
+
+
+Copy
+<ClickProvider options={clickOptions}>
+  <App/>
+</ClickProvider>
+What's next
+You're almost ready to start developing the next web3 killer app. Before you get cracking on your project, get familiar with some crucial aspects of CSPR.click that are demonstrated in the template:
+
+Responding to CSPR.click events
+The App component sets handlers to listen and respond to events triggered by CSPR.click when the user connects an account, switches to a different one, or closes the session.
+
+Refer to the Handling events page for information on how to add your listener functions.
+
+Customize the top navigation bar
+The template displays some settings selectors in the top navigation bar. Find the ClickTopBar component in src/components/ClickTopBar/index.tsx and see how these settings are defined.
+
+Refer to the Customizing the top bar section for complete reference on how to work with each of the setting elements in the top bar.
+
+Request transaction approvals
+At some point, your application will need to interact with the Casper network by sending a transaction (aka deploy).
+CSPR.click manages this process communicating with the active wallet to request the user to approve or reject the transaction. The UI depends on the wallet.
+
+The template includes the BuyMeACoffee components to demonstrate how to request a transaction signature and send the approved deploy to the network.
+
+Refer to the Signing transactions page for information on how to request the user a transaction approval. Also, look at Processing status updates for information on how to listen for real-time status updates.
+
+Leverage CSPR.cloud Proxy
+CSPR.click provides a proxy to interact with the CSPR.cloud REST and Streaming APIs, as well as to set up a Node RPC client with casper-js-sdk. This is helpful when you want to interact with the CSPR.cloud APIs from the frontend of your application, as CSPR.cloud APIs require authentication and you must not expose your API keys in the frontend.
+
+Refer to the CSPR.cloud API proxies page for information on how to use the proxy.
+
+Last updated 2 months ago
+
+
+v1.12.0 - November 7th, 2025
+v1.11.0 - October 13th, 2025
+v1.10.0 - September 12th, 2025
+v1.9.0 - July 22th, 2025
+v1.8.0 - Apr 30th, 2025
+v1.7.0 - Dec 23rd, 2024
+v1.6.0 - Oct 16th, 2024
+v1.5.0 - July 18th, 2024
+v1.4.0 - Mar 5th, 2024
+v1.3.0 - Jan 19th, 2024
+v1.2.1 - Jan 8th, 2024
+v1.2.0 - Dec 12th, 2023
+v1.1.4 - Dec 1st, 2023
+v1.1.0 - Nov 1st, 2023
+v1.0.0 - Oct 10th, 2023
+
+
+
+
+Copy
+
+Documentation
+Changelog
+Note: patch versions are not released as npm packages if interfaces haven't changed with respect to the previous version.
+
+v1.12.0 - November 7th, 2025
+New CSPR.cloud proxy client. Use the proxy client to interact with CSPR.cloud REST and Streaming APIs, , or set up a Node RPC client with casper-js-sdk directly from your frontend application when you don't operate a separate backend. For more info, see the new article CSPR.cloud API proxies in the reference section.
+
+Moved all types to the package @make-software/csprclick-core-types. Now you don't need to install @make-software/csprclick-core-client.
+
+Added the method showBuyCsprUi() to display the Buy CSPR widget. It replaces previous SDK method showByCsprUi() which is now deprecated and will be removed in a future version.
+
+Migration guide
+Upgrading to v1.12.0 from a previous version may require some changes in your code.
+
+Remove @make-software/csprclick-core-client from your dependencies.
+
+Change all types imported from @make-software/csprclick-core-client to be imported from @make-software/csprclick-core-types.
+
+Use the interface ICSPRClickSDK to keep instances of the SDK instead of the class CSPRClickSDK.
+
+Change calls to showByCsprUi() to showBuyCsprUi(). The first method will be removed in a future version.
+
+v1.11.0 - October 13th, 2025
+Enhanced WalletConnect sign in flows for a better user experience with Casper Wallet Mobile.
+
+v1.10.0 - September 12th, 2025
+new <AccountCardMenuItem> component to display account information in the account dropdown menu (includes account name, public key and liquid/total balances). Replaces <ViewAccountOnExplorerMenuItem>.
+
+v1.9.0 - July 22th, 2025
+new onStatusUpdate in the send() methods arguments. When used, CSPR.click opens a websockets connection with CSPR.cloud backend to receive processing status updates for the deployed transaction.
+
+Integration with Google Sign in and Apple Id for CSPR.click web wallet.
+
+v1.8.0 - Apr 30th, 2025
+new providerSupports property in the account object to indicate if the connected wallet supports signing with the TransactionV1 transaction model.
+
+CSPR.name enhanced support.
+
+v1.7.0 - Dec 23rd, 2024
+Support for the new transaction model TransactionV1.
+
+Updated Casper Wallet, Ledger, and Metamask Snap integrations to newest versions (all support now Casper 2.0).
+
+Deprecation notice for CasperDash wallet.
+
+v1.6.0 - Oct 16th, 2024
+Enhanced colors customization for the CSPR.click top bar UI elements.
+
+v1.5.0 - July 18th, 2024
+Torus and Casper Signer deprecation notices. These wallets will be removed in the next minor version.
+
+Added CSPR.name names to accounts in the UI overlays.
+
+v1.4.0 - Mar 5th, 2024
+Added Casper Wallet mobile universal links to enhance the user experience on mobile applications.
+
+New JWT provider for CSPR.click web wallet.
+
+New identicon component available to developers.
+
+v1.3.0 - Jan 19th, 2024
+Important note if you're upgrading your app to 1.3.0 from a previous version. <ClickTopBar> component has been replaced with new <ClickUI> component. The latter permits a more granular configuration for the elements that the developer wants to display in their application. For example, to not include the top navigtaion bar.
+
+Check this section for <ClickUI> component reference.
+
+New Buy CSPR UI to select between different onramp platforms.
+
+Integration with Ramp.
+
+CSPR.click navigation bar is now optional. Applications that have their own controls for signing in and displaying connected accounts, can exclude this component.
+
+v1.2.1 - Jan 8th, 2024
+fixed a bug that caused people using different Ledger devices to not be able to sign in with the second device without signing out and reloading the web page.
+
+fixed a bug that might cause transaction signature rejection when the user had different accounts in different tabs for the same application.
+
+UI fixes
+
+v1.2.0 - Dec 12th, 2023
+new API csprclick.switchAccount() to trigger the UI that permits to connect to another account.
+
+Previously used accounts are now shown in most recently used order.
+
+UI fixes.
+
+new API csprclick.switchAccount() to trigger the UI that permits to connect to another account.
+
+Previously used accounts are now shown in most recently used order.
+
+UI fixes.
+
+v1.1.4 - Dec 1st, 2023
+CSPR.click now detects if it's running within a mobile wallet in-app browser to skip wallet selection UI in sign-in flow.
+
+Ledger now works on Android devices.
+
+UI now shows an animation in account widget during loading.
+
+CSPR.click now display a warning if Casper app version in the Ledger device is outdated.
+
+v1.1.0 - Nov 1st, 2023
+Added Buy CSPR menu item to account dropdown menu.
+
+UI/UX improvements.
+
+v1.0.0 - Oct 10th, 2023
+Initial release.
+
+Last updated 2 months ago
+
+Install CSPR.click packages
+ClickProvider context provider
+Add <ClickUI> component to your app
+Add CSPR.click styles
+Option 1: your application uses styled-components
+Option 2: your application doesn't use styled-components
+Import required fonts
+What's next
+
+
+
+
+Copy
+
+CSPR.click SDK
+React
+To create a new application with CSPR.click already integrated, we recommend you to use the create-react-app template as described in Getting started.
+
+This page guides you through the steps required to integrate the CSPR.click SDK into your existing React web application.
+
+Install CSPR.click packages
+Run the following command in a terminal window to install CSPR.click packages:
+
+
+Copy
+npm install --save-dev @make-software/csprclick-ui @make-software/csprclick-core-client @make-software/csprclick-core-types
+If you're using Typescript, the command above also installs type definitions for CSPR.click.
+
+ClickProvider context provider
+First, define the initialization options for the CSPR.click library:
+
+
+Copy
+import { CONTENT_MODE } from '@make-software/csprclick-core-types';
+
+const clickOptions: CsprClickInitOptions = {
+    appName: 'Casper dApp',
+    appId: 'csprclick-template',
+    contentMode: CONTENT_MODE.IFRAME,
+    providers: ['casper-wallet', 'ledger', 'metamask-snap', 'casperdash'],
+};
+Next, wrap your main application component with the <ClickProvider> context provider:
+
+
+Copy
+<ClickProvider options={clickOptions}>
+  <App />
+</ClickProvider>
+This component will manage the download and initialization of the CSPR.click runtime library.
+
+Read more about the CsprClickInitOptions type in the SDK reference section.
+
+You can use the default csprclick-template application identifier while you're working locally on your application. But to upload your new project to a server, you'll need to get your own application id.
+
+Add <ClickUI> component to your app
+All the CSPR.click UI elements are managed from the <ClickUI> component. This component must be added to the very beginning of your main UI component and it's responsible for displaying the top bar and all the modal windows and pop-ups needed for connecting with wallets, showing information to the user, etc.
+
+
+Copy
+const topBarSettings = {
+    accountMenuItems: [<ViewAccountOnExplorerMenuItem key='0' />],
+}
+
+const App = () => {
+    return (
+        <!-- ... -->
+        <ClickUI topBarSettings={topBarSettings}/>
+        <!-- ... -->
+    )
+}
+Refer to the Customizing the top bar section in this guide for complete reference on how to work with each of the setting elements in the top bar.
+
+While we recommend to include the CSPR.click top bar in your application, if you have your own Sign in and session management controls you can opt-out. To do so, do not include the topBarSettings prop to ClickUI and CSPR.click won't render the top bar.
+
+Add CSPR.click styles
+Option 1: your application uses styled-components
+When your application already uses the <ThemeProvider> component from styled-components library, you just need to add CSPR.click styles to your themes.
+
+Considering as an example that your application has light and dark themes, you may merge the styles into your theme settings like this:
+
+
+Copy
+import { CsprClickThemes } from '@make-software/csprclick-ui';
+
+const YourAppThemes = {
+	dark: {
+		...CsprClickThemes.dark,
+		// your styles for dark theme here
+	},
+	light: {
+		...CsprClickThemes.light,
+		// your styles for light theme here
+	},
+};
+Option 2: your application doesn't use styled-components
+CSPR.click requires the styled-components library to work. Add it to your dependencies by running the command:
+
+
+Copy
+npm install --save styled-components@5.3.9
+Next, add the theme provider to your application:
+
+
+Copy
+import { CsprClickThemes } from '@make-software/csprclick-ui';
+
+<ThemeProvider theme={CsprClickThemes.light}>
+  <ClickProvider options={clickOptions}>
+    <App />
+  </ClickProvider>
+</ThemeProvider>
+Currently, you can choose between two themes: light and dark.
+
+Import required fonts
+In your main CSS file, import the Inter and Jetbrains mono fonts:
+
+
+Copy
+@import url('https://fonts.cdnfonts.com/css/inter');
+
+@font-face {
+    font-family: 'JetBrains Mono';
+    src: url('https://cdn.jsdelivr.net/gh/JetBrains/JetBrainsMono/web/woff2/JetBrainsMono-Regular.woff2')
+        format('woff2'),
+      url('https://cdn.jsdelivr.net/gh/JetBrains/JetBrainsMono/web/woff/JetBrainsMono-Regular.woff')
+        format('woff');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+  }
+What's next
+At this point, your application is prepared to display the CSPR.click UI to interact with the user and connect with wallets, switch to other accounts and approve transactions. Build and run your application, and take a look.
+
+From here, your application needs to interact with CSPR.click library to, for example, respond to wallet connection and request transaction approvals. Go through the following sections as required to complete the integration:
+
+Listen to CSPR.click events
+You'll need to listen and respond to some events triggered when the user connects an account, switches to a different one, or closes the session.
+
+Refer to the Handling events page for information on how to add your listener functions.
+
+Ask the user to connect a wallet
+If you don't display the CSPR.click top navigation bar, you must have your own Sign in or Connect buttons and respond calling the CSPR.click library .
+
+Refer to the Connecting a wallet page for information on how to trigger the wallet connection process.
+
+Request transaction approvals
+At some point, your application will need to interact with the Casper network by sending a transaction (aka deploy).
+CSPR.click manages this process communicating with the active wallet to request the user to approve or reject the transaction. The UI depends on the wallet.
+
+Refer to the Signing transactions page for information on how to request the user a transaction approval. Also, look at Processing status updates for information on how to listen for real-time status updates.
+
+Customize the top navigation bar
+You can add any of our predefined settings selectors or account menu items. And you can define your own.
+
+Refer to the Customizing the top bar section for complete reference on how to work with each of the setting elements in the top bar.
+
+Last updated 4 months ago
+
+csprclick:signed_in
+csprclick:switched_account
+csprclick:signed_out
+csprclick:disconnected
+
+
+
+
+Copy
+
+CSPR.click SDK
+React
+Handling events
+In your application, you'll need to listen and respond to different events emitted by the CSPR.click library. On this page, we're covering the most common. Check the Events page for a complete list of events.
+
+The following code snippet shows an example of how to bind your handlers to the CSPR.click events with the React useEffect() hook:
+
+
+Copy
+const clickRef = useClickRef();
+
+useEffect(() => {
+  clickRef?.on('csprclick:signed_in', async (evt) => {
+    // update your app accordingly
+  });
+  clickRef?.on('csprclick:signed_out', async (evt) => {
+    // update your app accordingly
+  });
+}, [clickRef?.on]);
+csprclick:signed_in
+This event is emitted every time the CSPR.click library connects to an account.
+
+csprclick:signed_in reference.
+
+csprclick:switched_account
+This event is emitted instead of csprclick:signed_i when the user has clicked on the Switch Account menu item and has switched to another account in the same or a different wallet.
+
+csprclick:switched_account reference.
+
+csprclick:signed_out
+This event is emitted when the CSPR.click library disconnects the active account due to a call to the signOut() SDK method.
+
+csprclick:signed_out reference.
+
+csprclick:disconnected
+This event is emitted when CSPR.click library receives a disconnect request or event from the connected wallet. The app should close the current session as a consequence of this event.
+
+It receives in the event object the provider that has been disconnected.
+
+csprclick:disconnected reference.
+
+Previous
+React
+Next
+Connecting a wallet
+Last updated 1 year ago
+
+csprclick:signed_in
+csprclick:switched_account
+csprclick:signed_out
+csprclick:disconnected
+
+
+
+
+Copy
+
+CSPR.click SDK
+React
+Handling events
+In your application, you'll need to listen and respond to different events emitted by the CSPR.click library. On this page, we're covering the most common. Check the Events page for a complete list of events.
+
+The following code snippet shows an example of how to bind your handlers to the CSPR.click events with the React useEffect() hook:
+
+
+Copy
+const clickRef = useClickRef();
+
+useEffect(() => {
+  clickRef?.on('csprclick:signed_in', async (evt) => {
+    // update your app accordingly
+  });
+  clickRef?.on('csprclick:signed_out', async (evt) => {
+    // update your app accordingly
+  });
+}, [clickRef?.on]);
+csprclick:signed_in
+This event is emitted every time the CSPR.click library connects to an account.
+
+csprclick:signed_in reference.
+
+csprclick:switched_account
+This event is emitted instead of csprclick:signed_i when the user has clicked on the Switch Account menu item and has switched to another account in the same or a different wallet.
+
+csprclick:switched_account reference.
+
+csprclick:signed_out
+This event is emitted when the CSPR.click library disconnects the active account due to a call to the signOut() SDK method.
+
+csprclick:signed_out reference.
+
+csprclick:disconnected
+This event is emitted when CSPR.click library receives a disconnect request or event from the connected wallet. The app should close the current session as a consequence of this event.
+
+It receives in the event object the provider that has been disconnected.
+
+csprclick:disconnected reference.
+
+Previous
+React
+Next
+Connecting a wallet
+Last updated 1 year ago
+
+# Signing transactions
+
+Applications interacting with the Casper Network must submit transactions. Every transaction requires explicit user approval, which is done by digitally signing it.
+
+Your frontend application is not always responsible for creating the transaction. Depending on your architecture, a transaction may be constructed by your backend service, or even by a third party, before being sent to the user for approval.
+
+Typically, you'll handle a transaction without approvals. And such approval is what you want to get from the user. Then, the transaction will be ready to be processed by a Casper node.
+
+The CSPR.click SDK provides two ways to obtain this approval:
+
+1. [`send()`](https://docs.cspr.click/reference/methods#send).
+
+* Requests the active wallet to prompt the user for approval (signature).
+* Automatically submits the signed transaction to a Casper node for processing.
+* Optionally accepts a callback function to receive live status updates during execution (e.g., pending, confirmed, rejected).
+
+This is the most common method. In most applications, you can simply call send() and use its result or the status updates to inform the user whether their transaction is being processed, or if it was rejected (by either the user or the network).
+
+2. [`sign()`](https://docs.cspr.click/reference/methods#sign).
+
+* Requests the active wallet to prompt the user for approval.
+* Returns the signature value to your application, without submitting the transaction.
+
+This method is intended for advanced scenarios, where you need the raw signature for custom workflows (e.g., off-chain processing, server-side validation, or multi-step transaction orchestration).
+
+## Buy Alice a Coffee on testnet
+
+In the React `create-react-app` [template ](https://docs.cspr.click/documentation/getting-started#create-a-new-project)we've added an example that shows how to request the approval for a transaction that sends to Alice (an imaginary colleague in our team) 50 CSPR testnet tokens;
+
+<figure><img src="https://4098787943-files.gitbook.io/~/files/v0/b/gitbook-x-prod.appspot.com/o/spaces%2FMwTFKCda4irtFhY9tqGt%2Fuploads%2Fgit-blob-e6956e436715a1649f6ad96cf72ec68e8e73df8b%2Fimage%20(6).png?alt=media" alt=""><figcaption><p>Example in the template project</p></figcaption></figure>
+
+Take a look into the `<BuyMeACoffee>` component. Here are the key parts:
+
+1. **Build the transaction**
+
+First, construct a transfer transaction. Thecasper-js-sdk is included in this template to help you with this step. Refer to the official Casper SDK documentation for more detailed usage and examples.
+
+2. **Send the transaction**
+
+Next, call the clickRef.send() method. CSPR.click will:
+
+* Prompt the user in the active wallet to review and sign the transaction.
+* Forward the signed transaction to a Casper node for processing.
+
+3. **Handle responses**
+
+Your application should be prepared to handle all possible outcomes:
+
+* Success: The transaction was sent and you receive a transaction hash.
+* User rejection: The user declined to sign the transaction.
+* Network rejection: The Casper node rejected the transaction.
+
+You can handle responses using the .then() and .catch() blocks, or use the status updates as explained in the next step.
+
+4. **(Optional) Track transaction status**
+
+The `.send()` method accepts an optional callback function as its second argument. This callback receives transaction status updates while the transaction is being executed, enabling you to:
+
+* Show progress indicators in your UI (e.g., “Transaction pending…”)
+* Update users when the transaction is confirmed or fails
+* Provide richer feedback beyond just the final outcome
+
+```tsx
+function BuyMeACoffee() {
+  const clickRef = useClickRef();
+  const activeAccount = clickRef?.getActiveAccount();
+  const [transactionHash, setTransactionHash] = useState<string>('');
+  const [waitingResponse, setWaitingResponse] = useState<boolean>(false);
+
+  const signAndSend = (transactionObj: object, sender: string) => {
+          const onStatusUpdate = (status: string, data: any) => {
+            console.log('STATUS UPDATE', status, data);
+            if(status === TransactionStatus.SENT)
+              setWaitingResponse(true);
+          };
+      
+          clickRef
+            ?.send(transactionObj, sender, onStatusUpdate)
+            .then((res: SendResult | undefined) => {
+                setWaitingResponse(false);
+                if (res?.transactionHash) {
+                    setTransactionHash(res.transactionHash);
+                    alert('Transaction sent successfully: ' + res.transactionHash +
+                        '\n Status: ' +
+                        res.status +
+                        '\n Timestamp: ' +
+                        res.csprCloudTransaction.timestamp);
+              } else if (res?.cancelled) {
+                alert('Sign cancelled');
+              } else {
+                alert('Error in send(): ' + res?.error + '\n' + res?.errorData);
+              }
+            })
+            .catch((err: any) => {
+              alert('Error: ' + err);
+              throw err;
+            });
+  };
+
+  const handleSignTransaction = (evt: any) => {
+    evt.preventDefault();
+    const senderPk = activeAccount?.public_key?.toLowerCase() || '';
+    const transaction = new NativeTransferBuilder()
+        .from(PublicKey.fromHex(senderPk))
+        .target(PublicKey.fromHex(recipientPk))
+        .amount('6' + '000000000')
+        .id(Date.now())
+        .chainName(clickRef.chainName!)
+        .payment(100_000_000)
+        .build();
+    signAndSend(transaction.toJSON() as object, senderPk);
+  };
+	
+  return (
+    ...
+    <button onClick={() => handleSignTransaction()} />Sign and send transaction</button>
+    ...
+  )
+}
+```
+# Tracking your transactions in real time
+
+When using the `send()`method to request a transaction approval and deploy it to the network, the SDK can, optionally, establish a websocket connection with CSPR.click backend and receive real-time updates about the transaction execution.
+
+Traditionally, applications had to rely on polling a backend service or querying a Casper node to know whether a transaction had been processed, confirmed, or rejected. This approach added complexity, increased latency, and delayed the user experience.
+
+Using a websockets connection to listen for real-time updates, your application can:
+
+* Receive immediate status notifications during the full transaction lifecycle.
+* Update your UI with progress states (e.g., pending, processed, failed).
+* Access result data without the need for extra API calls.
+
+This makes it easier to build responsive, user-friendly applications that keep users informed in real time as their transactions move through the Casper Network.
+
+<figure><img src="https://4098787943-files.gitbook.io/~/files/v0/b/gitbook-x-prod.appspot.com/o/spaces%2FMwTFKCda4irtFhY9tqGt%2Fuploads%2Fgit-blob-242a16e3607da6b281aacf3d95b650f1036e6955%2Fprocessing-updates.png?alt=media" alt="Waiting for transaction completion"><figcaption></figcaption></figure>
+
+## Receive transaction updates
+
+To wait for transaction execution and receive status updates, pass a callback function to the `send()` method. This function will be called with status updates as the transaction is approved and processed.
+
+```javascript
+const onStatusUpdate = (status, data) => {
+    console.log('STATUS UPDATE', status, data);
+    if (status === TransactionStatus.SENT)
+        setWaitingIndicator();
+    if (status === TransactionStatus.PROCESSED)
+        parseProcessedTransaction();
+};
+
+clickRef
+    .send(transaction, sender, onStatusUpdate)
+    .then((res) => {
+        // check result and update UI accordingly
+    })
+    .catch((err) => {
+        alert('Error: ' + err);
+        throw err;
+    });
+```
+
+### Status values
+
+The `status` argument passed to the callback function can have the following values:
+
+| Value       | Description                                                                                                                           |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `sent`      | The transaction has been signed and successfully deployed to a Casper node.                                                           |
+| `processed` | The transaction has been executed by the network. May result in success or failure.                                                   |
+| `expired`   | The transaction’s time-to-live (TTL) elapsed before execution.                                                                        |
+| `cancelled` | The user rejected the signature request.                                                                                              |
+| `timeout`   | The SDK stopped listening for updates before the transaction was finalized. A custom timeout can be specified (default: 120 seconds). |
+| `error`     | An unexpected error occurred while submitting or monitoring the transaction.                                                          |
+| `ping`      | A heartbeat event sent periodically to indicate that the connection is still active..                                                 |
+
+### Data with processed Status
+
+When the transaction reaches the processed state, the callback function receives an additional data argument.
+
+This object contains the full `Deploy` entity, as defined in the [CSPR.cloud REST API documentation](https://docs.cspr.cloud/rest-api/deploy#properties).
+
+Your application can use this information to:
+
+* Show whether the transaction succeeded or failed.
+* Provide more detailed feedback (e.g., execution cost, error messages).
+
+# Customizing the top bar
+
+{% hint style="info" %}
+While we recommend to include the CSPR.click top bar in your application, if you have your own Sign in and session management controls you can opt-out. To do so, do not include the `topBarSettings` prop to `ClickUI` and CSPR.click won't render the top bar.
+{% endhint %}
+
+CSPR.click includes a navigation bar that displays on the top of the web application. It's the same navigation bar you can find on CSPR.live and other applications that integrate CSPR.click.
+
+<figure><img src="https://4098787943-files.gitbook.io/~/files/v0/b/gitbook-x-prod.appspot.com/o/spaces%2FMwTFKCda4irtFhY9tqGt%2Fuploads%2Fgit-blob-d5d3203cdb6fc6e805c12d4514f6e7d343f140d3%2Fcustomizing-top-bar.png?alt=media" alt=""><figcaption><p>CSPR.click navigation bar</p></figcaption></figure>
+
+In this top bar you always see the CSPR Products menu on the left side, and the Account menu on the right side. The rest are customizable selectors that you can choose to add or not. Most of them are customizable as we'll see in the next pages.
+
+### TopBarSettings object
+
+This object wraps all settings in the navigation bar and is included to `<ClickUI>` as a prop. More on each configuration in the following subpages.
+
+```tsx
+const topBarSettings: TopBarSettings = {
+    accountMenuItems,
+    onThemeSwitch: toggleTheme,
+    languageSettings: languageSettings(lang, setLang),
+    currencySettings: currencySettings(currency, setCurrency),
+    networkSettings: networkSettings(network, setNetwork),
+};
+
+<ClickUI
+    topBarSettings={topBarSettings}
+    themeMode={themeMode}
+/>
+```
+
+# Hooks and Components
+
+### Hooks
+
+#### useClickRef() hook
+
+In your components, you'll often need to call the CSPR.click API to get data or request an operation. To get a reference to the CSPR.click SDK instance make use of the `useClickRef()` React hook:
+
+```tsx
+import { useClickRef } from '@make-software/csprclick-ui';
+
+function MyComponent() {
+  const clickRef = useClickRef();
+  ...
+}
+```
+
+Then, in your application you'll be able to request CSPR.click to perform some operations using the class [methods](https://docs.cspr.click/cspr.click-sdk/reference/methods), or get values reading the class [properties](https://docs.cspr.click/cspr.click-sdk/reference/properties).
+
+### Components
+
+#### \<AccountIdenticon>
+
+Use the `AccountIdenticon` component to display the public key identicon (or avatar). It can be used also with an account hash string.
+
+<figure><img src="https://4098787943-files.gitbook.io/~/files/v0/b/gitbook-x-prod.appspot.com/o/spaces%2FMwTFKCda4irtFhY9tqGt%2Fuploads%2Fgit-blob-52a85210e4d0bb931c36afa877074a93f783e757%2Faccount-identicon-example.png?alt=media" alt="AccountIdenticon component example"><figcaption></figcaption></figure>
+
+In addition to the public key or account hash, indicate the size of the resulting image: `'xs'` for `16px`; `'sm'` for `20px`; `'m'` for `32px`; or `'l'` for `40px`.
+
+```tsx
+<AccountIdenticon hex={publicKey} size={'l'} />
+```
+
+The size can be indicated with a number of pixels:
+
+```tsx
+<AccountIdenticon hex={accountHash} size={40}  />
+```
+
+# JavaScript
+
+This page guides you through the steps required to integrate the UI SDK into a non-React application.
+
+Check also the HTML/Javascript demo in the [csprclick-examples](https://github.com/make-software/csprclick-examples) repository to see the resulting application. In that repo you can find also examples or few other libraries/frameworks.
+
+## Download the CSPR.click UI runtime library from the CDN:
+
+Before the closing `head` tag, add a `script` element to download the CSPR.click scripts:
+
+```html
+  <!-- update to latest released version -->
+  <script defer="defer" src="https://cdn.cspr.click/ui/v1.9.0/csprclick-client-1.9.0.js"></script>
+</head>
+```
+
+## Add a container for the CSPR.click UI
+
+In your main layout file, add a `<div>` container where CSPR.click will inject some UI components like the navigation top bar or the 1-click sign in modal. Set an `id`, you'll need it later during CSPR.click initialization.
+
+```html
+<body>
+  <div id="app">
+    <div id="csprclick-ui"></div>
+    <div id="content">
+     <!-- you rapplication goes here -->
+    </div>
+  </div>
+</body>
+```
+
+Also, depending on the layout of your application and the grid system you're using, you'll need to add some CSS styles to this container to match the styles of the rest of the app (width, background color, etc).
+
+## Configure the initialization of the CSPR.click SDK
+
+In a javascript file, add the initialization options for the CSPR.click SDK. Make sure this script loads before CSPR.click is downloaded.
+
+The minimal configuration for the UI just defines the container for the navigation top bar and the root container of your app. We'll see other options later in this document.
+
+```javascript
+const clickUIOptions = {
+  uiContainer: 'csprclick-ui', 
+  rootAppElement: '#app',
+  showTopBar: true,  
+};
+```
+
+Next, define Client SDK options:
+
+```javascript
+const clickSDKOptions = {
+  appName: 'CSPR.click demo',
+  appId: 'csprclick-template',
+  providers: ['casper-wallet', 'casper-signer'],
+};
+```
+
+You can read more about the [CsprClickInitOptions ](https://docs.cspr.click/reference/types#csprclickinitoptions)object in the reference section.
+
+## What's next
+
+At this point, your application should show the CSPR.click top navigation bar and you can click on Sign in button to connect your favorite wallet.
+
+<figure><img src="https://4098787943-files.gitbook.io/~/files/v0/b/gitbook-x-prod.appspot.com/o/spaces%2FMwTFKCda4irtFhY9tqGt%2Fuploads%2Fgit-blob-37c68ecaf8ab4cf34c826cfb3919511ef7151493%2Fcsprclick-integration-html.png?alt=media" alt=""><figcaption></figcaption></figure>
+
+#### Listen to CSPR.click events
+
+You'll need to listen and respond to some events triggered when the user connects an account, switches to a different one, or closes the session.
+
+Refer to the [Handling events](https://docs.cspr.click/cspr.click-sdk/javascript/handling-events) page for information on how to add your listener functions.
+
+#### Ask the user to connect a wallet
+
+If you don't display the CSPR.click top navigation bar, you must have your own Sign in or Connect buttons and respond calling the CSPR.click library .
+
+Refer to the [Connecting a wallet](https://docs.cspr.click/cspr.click-sdk/javascript/connecting-a-wallet) page for information on how to trigger the wallet connection process.
+
+#### Request transaction approvals
+
+At some point, your application will need to interact with the Casper network by sending a transaction (aka deploy).\
+CSPR.click manages this process communicating with the active wallet to request the user to approve or reject the transaction. The UI depends on the wallet.
+
+Refer to the [Signing transactions](https://docs.cspr.click/cspr.click-sdk/javascript/signing-transactions) page for information on how to request the user a transaction approval. Also, look at [Processing status updates](https://docs.cspr.click/cspr.click-sdk/javascript/processing-status-updates) for information on how to listen for real-time status updates.
+
+#### Customize the top navigation bar
+
+You can add any of our predefined settings selectors or account menu items. And you can define your own.
+
+Refer to the [Customizing the top bar](https://docs.cspr.click/cspr.click-sdk/javascript/customizing-the-top-bar) section for complete reference on how to work with each of the setting elements in the top bar.
+
+# JavaScript
+
+This page guides you through the steps required to integrate the UI SDK into a non-React application.
+
+Check also the HTML/Javascript demo in the [csprclick-examples](https://github.com/make-software/csprclick-examples) repository to see the resulting application. In that repo you can find also examples or few other libraries/frameworks.
+
+## Download the CSPR.click UI runtime library from the CDN:
+
+Before the closing `head` tag, add a `script` element to download the CSPR.click scripts:
+
+```html
+  <!-- update to latest released version -->
+  <script defer="defer" src="https://cdn.cspr.click/ui/v1.9.0/csprclick-client-1.9.0.js"></script>
+</head>
+```
+
+## Add a container for the CSPR.click UI
+
+In your main layout file, add a `<div>` container where CSPR.click will inject some UI components like the navigation top bar or the 1-click sign in modal. Set an `id`, you'll need it later during CSPR.click initialization.
+
+```html
+<body>
+  <div id="app">
+    <div id="csprclick-ui"></div>
+    <div id="content">
+     <!-- you rapplication goes here -->
+    </div>
+  </div>
+</body>
+```
+
+Also, depending on the layout of your application and the grid system you're using, you'll need to add some CSS styles to this container to match the styles of the rest of the app (width, background color, etc).
+
+## Configure the initialization of the CSPR.click SDK
+
+In a javascript file, add the initialization options for the CSPR.click SDK. Make sure this script loads before CSPR.click is downloaded.
+
+The minimal configuration for the UI just defines the container for the navigation top bar and the root container of your app. We'll see other options later in this document.
+
+```javascript
+const clickUIOptions = {
+  uiContainer: 'csprclick-ui', 
+  rootAppElement: '#app',
+  showTopBar: true,  
+};
+```
+
+Next, define Client SDK options:
+
+```javascript
+const clickSDKOptions = {
+  appName: 'CSPR.click demo',
+  appId: 'csprclick-template',
+  providers: ['casper-wallet', 'casper-signer'],
+};
+```
+
+You can read more about the [CsprClickInitOptions ](https://docs.cspr.click/reference/types#csprclickinitoptions)object in the reference section.
+
+## What's next
+
+At this point, your application should show the CSPR.click top navigation bar and you can click on Sign in button to connect your favorite wallet.
+
+<figure><img src="https://4098787943-files.gitbook.io/~/files/v0/b/gitbook-x-prod.appspot.com/o/spaces%2FMwTFKCda4irtFhY9tqGt%2Fuploads%2Fgit-blob-37c68ecaf8ab4cf34c826cfb3919511ef7151493%2Fcsprclick-integration-html.png?alt=media" alt=""><figcaption></figcaption></figure>
+
+#### Listen to CSPR.click events
+
+You'll need to listen and respond to some events triggered when the user connects an account, switches to a different one, or closes the session.
+
+Refer to the [Handling events](https://docs.cspr.click/cspr.click-sdk/javascript/handling-events) page for information on how to add your listener functions.
+
+#### Ask the user to connect a wallet
+
+If you don't display the CSPR.click top navigation bar, you must have your own Sign in or Connect buttons and respond calling the CSPR.click library .
+
+Refer to the [Connecting a wallet](https://docs.cspr.click/cspr.click-sdk/javascript/connecting-a-wallet) page for information on how to trigger the wallet connection process.
+
+#### Request transaction approvals
+
+At some point, your application will need to interact with the Casper network by sending a transaction (aka deploy).\
+CSPR.click manages this process communicating with the active wallet to request the user to approve or reject the transaction. The UI depends on the wallet.
+
+Refer to the [Signing transactions](https://docs.cspr.click/cspr.click-sdk/javascript/signing-transactions) page for information on how to request the user a transaction approval. Also, look at [Processing status updates](https://docs.cspr.click/cspr.click-sdk/javascript/processing-status-updates) for information on how to listen for real-time status updates.
+
+#### Customize the top navigation bar
+
+You can add any of our predefined settings selectors or account menu items. And you can define your own.
+
+Refer to the [Customizing the top bar](https://docs.cspr.click/cspr.click-sdk/javascript/customizing-the-top-bar) section for complete reference on how to work with each of the setting elements in the top bar.
+
+# JavaScript
+
+This page guides you through the steps required to integrate the UI SDK into a non-React application.
+
+Check also the HTML/Javascript demo in the [csprclick-examples](https://github.com/make-software/csprclick-examples) repository to see the resulting application. In that repo you can find also examples or few other libraries/frameworks.
+
+## Download the CSPR.click UI runtime library from the CDN:
+
+Before the closing `head` tag, add a `script` element to download the CSPR.click scripts:
+
+```html
+  <!-- update to latest released version -->
+  <script defer="defer" src="https://cdn.cspr.click/ui/v1.9.0/csprclick-client-1.9.0.js"></script>
+</head>
+```
+
+## Add a container for the CSPR.click UI
+
+In your main layout file, add a `<div>` container where CSPR.click will inject some UI components like the navigation top bar or the 1-click sign in modal. Set an `id`, you'll need it later during CSPR.click initialization.
+
+```html
+<body>
+  <div id="app">
+    <div id="csprclick-ui"></div>
+    <div id="content">
+     <!-- you rapplication goes here -->
+    </div>
+  </div>
+</body>
+```
+
+Also, depending on the layout of your application and the grid system you're using, you'll need to add some CSS styles to this container to match the styles of the rest of the app (width, background color, etc).
+
+## Configure the initialization of the CSPR.click SDK
+
+In a javascript file, add the initialization options for the CSPR.click SDK. Make sure this script loads before CSPR.click is downloaded.
+
+The minimal configuration for the UI just defines the container for the navigation top bar and the root container of your app. We'll see other options later in this document.
+
+```javascript
+const clickUIOptions = {
+  uiContainer: 'csprclick-ui', 
+  rootAppElement: '#app',
+  showTopBar: true,  
+};
+```
+
+Next, define Client SDK options:
+
+```javascript
+const clickSDKOptions = {
+  appName: 'CSPR.click demo',
+  appId: 'csprclick-template',
+  providers: ['casper-wallet', 'casper-signer'],
+};
+```
+
+You can read more about the [CsprClickInitOptions ](https://docs.cspr.click/reference/types#csprclickinitoptions)object in the reference section.
+
+## What's next
+
+At this point, your application should show the CSPR.click top navigation bar and you can click on Sign in button to connect your favorite wallet.
+
+<figure><img src="https://4098787943-files.gitbook.io/~/files/v0/b/gitbook-x-prod.appspot.com/o/spaces%2FMwTFKCda4irtFhY9tqGt%2Fuploads%2Fgit-blob-37c68ecaf8ab4cf34c826cfb3919511ef7151493%2Fcsprclick-integration-html.png?alt=media" alt=""><figcaption></figcaption></figure>
+
+#### Listen to CSPR.click events
+
+You'll need to listen and respond to some events triggered when the user connects an account, switches to a different one, or closes the session.
+
+Refer to the [Handling events](https://docs.cspr.click/cspr.click-sdk/javascript/handling-events) page for information on how to add your listener functions.
+
+#### Ask the user to connect a wallet
+
+If you don't display the CSPR.click top navigation bar, you must have your own Sign in or Connect buttons and respond calling the CSPR.click library .
+
+Refer to the [Connecting a wallet](https://docs.cspr.click/cspr.click-sdk/javascript/connecting-a-wallet) page for information on how to trigger the wallet connection process.
+
+#### Request transaction approvals
+
+At some point, your application will need to interact with the Casper network by sending a transaction (aka deploy).\
+CSPR.click manages this process communicating with the active wallet to request the user to approve or reject the transaction. The UI depends on the wallet.
+
+Refer to the [Signing transactions](https://docs.cspr.click/cspr.click-sdk/javascript/signing-transactions) page for information on how to request the user a transaction approval. Also, look at [Processing status updates](https://docs.cspr.click/cspr.click-sdk/javascript/processing-status-updates) for information on how to listen for real-time status updates.
+
+#### Customize the top navigation bar
+
+You can add any of our predefined settings selectors or account menu items. And you can define your own.
+
+Refer to the [Customizing the top bar](https://docs.cspr.click/cspr.click-sdk/javascript/customizing-the-top-bar) section for complete reference on how to work with each of the setting elements in the top bar.
+
+# JavaScript
+
+This page guides you through the steps required to integrate the UI SDK into a non-React application.
+
+Check also the HTML/Javascript demo in the [csprclick-examples](https://github.com/make-software/csprclick-examples) repository to see the resulting application. In that repo you can find also examples or few other libraries/frameworks.
+
+## Download the CSPR.click UI runtime library from the CDN:
+
+Before the closing `head` tag, add a `script` element to download the CSPR.click scripts:
+
+```html
+  <!-- update to latest released version -->
+  <script defer="defer" src="https://cdn.cspr.click/ui/v1.9.0/csprclick-client-1.9.0.js"></script>
+</head>
+```
+
+## Add a container for the CSPR.click UI
+
+In your main layout file, add a `<div>` container where CSPR.click will inject some UI components like the navigation top bar or the 1-click sign in modal. Set an `id`, you'll need it later during CSPR.click initialization.
+
+```html
+<body>
+  <div id="app">
+    <div id="csprclick-ui"></div>
+    <div id="content">
+     <!-- you rapplication goes here -->
+    </div>
+  </div>
+</body>
+```
+
+Also, depending on the layout of your application and the grid system you're using, you'll need to add some CSS styles to this container to match the styles of the rest of the app (width, background color, etc).
+
+## Configure the initialization of the CSPR.click SDK
+
+In a javascript file, add the initialization options for the CSPR.click SDK. Make sure this script loads before CSPR.click is downloaded.
+
+The minimal configuration for the UI just defines the container for the navigation top bar and the root container of your app. We'll see other options later in this document.
+
+```javascript
+const clickUIOptions = {
+  uiContainer: 'csprclick-ui', 
+  rootAppElement: '#app',
+  showTopBar: true,  
+};
+```
+
+Next, define Client SDK options:
+
+```javascript
+const clickSDKOptions = {
+  appName: 'CSPR.click demo',
+  appId: 'csprclick-template',
+  providers: ['casper-wallet', 'casper-signer'],
+};
+```
+
+You can read more about the [CsprClickInitOptions ](https://docs.cspr.click/reference/types#csprclickinitoptions)object in the reference section.
+
+## What's next
+
+At this point, your application should show the CSPR.click top navigation bar and you can click on Sign in button to connect your favorite wallet.
+
+<figure><img src="https://4098787943-files.gitbook.io/~/files/v0/b/gitbook-x-prod.appspot.com/o/spaces%2FMwTFKCda4irtFhY9tqGt%2Fuploads%2Fgit-blob-37c68ecaf8ab4cf34c826cfb3919511ef7151493%2Fcsprclick-integration-html.png?alt=media" alt=""><figcaption></figcaption></figure>
+
+#### Listen to CSPR.click events
+
+You'll need to listen and respond to some events triggered when the user connects an account, switches to a different one, or closes the session.
+
+Refer to the [Handling events](https://docs.cspr.click/cspr.click-sdk/javascript/handling-events) page for information on how to add your listener functions.
+
+#### Ask the user to connect a wallet
+
+If you don't display the CSPR.click top navigation bar, you must have your own Sign in or Connect buttons and respond calling the CSPR.click library .
+
+Refer to the [Connecting a wallet](https://docs.cspr.click/cspr.click-sdk/javascript/connecting-a-wallet) page for information on how to trigger the wallet connection process.
+
+#### Request transaction approvals
+
+At some point, your application will need to interact with the Casper network by sending a transaction (aka deploy).\
+CSPR.click manages this process communicating with the active wallet to request the user to approve or reject the transaction. The UI depends on the wallet.
+
+Refer to the [Signing transactions](https://docs.cspr.click/cspr.click-sdk/javascript/signing-transactions) page for information on how to request the user a transaction approval. Also, look at [Processing status updates](https://docs.cspr.click/cspr.click-sdk/javascript/processing-status-updates) for information on how to listen for real-time status updates.
+
+#### Customize the top navigation bar
+
+You can add any of our predefined settings selectors or account menu items. And you can define your own.
+
+Refer to the [Customizing the top bar](https://docs.cspr.click/cspr.click-sdk/javascript/customizing-the-top-bar) section for complete reference on how to work with each of the setting elements in the top bar.
+
+# JavaScript
+
+This page guides you through the steps required to integrate the UI SDK into a non-React application.
+
+Check also the HTML/Javascript demo in the [csprclick-examples](https://github.com/make-software/csprclick-examples) repository to see the resulting application. In that repo you can find also examples or few other libraries/frameworks.
+
+## Download the CSPR.click UI runtime library from the CDN:
+
+Before the closing `head` tag, add a `script` element to download the CSPR.click scripts:
+
+```html
+  <!-- update to latest released version -->
+  <script defer="defer" src="https://cdn.cspr.click/ui/v1.9.0/csprclick-client-1.9.0.js"></script>
+</head>
+```
+
+## Add a container for the CSPR.click UI
+
+In your main layout file, add a `<div>` container where CSPR.click will inject some UI components like the navigation top bar or the 1-click sign in modal. Set an `id`, you'll need it later during CSPR.click initialization.
+
+```html
+<body>
+  <div id="app">
+    <div id="csprclick-ui"></div>
+    <div id="content">
+     <!-- you rapplication goes here -->
+    </div>
+  </div>
+</body>
+```
+
+Also, depending on the layout of your application and the grid system you're using, you'll need to add some CSS styles to this container to match the styles of the rest of the app (width, background color, etc).
+
+## Configure the initialization of the CSPR.click SDK
+
+In a javascript file, add the initialization options for the CSPR.click SDK. Make sure this script loads before CSPR.click is downloaded.
+
+The minimal configuration for the UI just defines the container for the navigation top bar and the root container of your app. We'll see other options later in this document.
+
+```javascript
+const clickUIOptions = {
+  uiContainer: 'csprclick-ui', 
+  rootAppElement: '#app',
+  showTopBar: true,  
+};
+```
+
+Next, define Client SDK options:
+
+```javascript
+const clickSDKOptions = {
+  appName: 'CSPR.click demo',
+  appId: 'csprclick-template',
+  providers: ['casper-wallet', 'casper-signer'],
+};
+```
+
+You can read more about the [CsprClickInitOptions ](https://docs.cspr.click/reference/types#csprclickinitoptions)object in the reference section.
+
+## What's next
+
+At this point, your application should show the CSPR.click top navigation bar and you can click on Sign in button to connect your favorite wallet.
+
+<figure><img src="https://4098787943-files.gitbook.io/~/files/v0/b/gitbook-x-prod.appspot.com/o/spaces%2FMwTFKCda4irtFhY9tqGt%2Fuploads%2Fgit-blob-37c68ecaf8ab4cf34c826cfb3919511ef7151493%2Fcsprclick-integration-html.png?alt=media" alt=""><figcaption></figcaption></figure>
+
+#### Listen to CSPR.click events
+
+You'll need to listen and respond to some events triggered when the user connects an account, switches to a different one, or closes the session.
+
+Refer to the [Handling events](https://docs.cspr.click/cspr.click-sdk/javascript/handling-events) page for information on how to add your listener functions.
+
+#### Ask the user to connect a wallet
+
+If you don't display the CSPR.click top navigation bar, you must have your own Sign in or Connect buttons and respond calling the CSPR.click library .
+
+Refer to the [Connecting a wallet](https://docs.cspr.click/cspr.click-sdk/javascript/connecting-a-wallet) page for information on how to trigger the wallet connection process.
+
+#### Request transaction approvals
+
+At some point, your application will need to interact with the Casper network by sending a transaction (aka deploy).\
+CSPR.click manages this process communicating with the active wallet to request the user to approve or reject the transaction. The UI depends on the wallet.
+
+Refer to the [Signing transactions](https://docs.cspr.click/cspr.click-sdk/javascript/signing-transactions) page for information on how to request the user a transaction approval. Also, look at [Processing status updates](https://docs.cspr.click/cspr.click-sdk/javascript/processing-status-updates) for information on how to listen for real-time status updates.
+
+#### Customize the top navigation bar
+
+You can add any of our predefined settings selectors or account menu items. And you can define your own.
+
+Refer to the [Customizing the top bar](https://docs.cspr.click/cspr.click-sdk/javascript/customizing-the-top-bar) section for complete reference on how to work with each of the setting elements in the top bar.
+
+# JavaScript
+
+This page guides you through the steps required to integrate the UI SDK into a non-React application.
+
+Check also the HTML/Javascript demo in the [csprclick-examples](https://github.com/make-software/csprclick-examples) repository to see the resulting application. In that repo you can find also examples or few other libraries/frameworks.
+
+## Download the CSPR.click UI runtime library from the CDN:
+
+Before the closing `head` tag, add a `script` element to download the CSPR.click scripts:
+
+```html
+  <!-- update to latest released version -->
+  <script defer="defer" src="https://cdn.cspr.click/ui/v1.9.0/csprclick-client-1.9.0.js"></script>
+</head>
+```
+
+## Add a container for the CSPR.click UI
+
+In your main layout file, add a `<div>` container where CSPR.click will inject some UI components like the navigation top bar or the 1-click sign in modal. Set an `id`, you'll need it later during CSPR.click initialization.
+
+```html
+<body>
+  <div id="app">
+    <div id="csprclick-ui"></div>
+    <div id="content">
+     <!-- you rapplication goes here -->
+    </div>
+  </div>
+</body>
+```
+
+Also, depending on the layout of your application and the grid system you're using, you'll need to add some CSS styles to this container to match the styles of the rest of the app (width, background color, etc).
+
+## Configure the initialization of the CSPR.click SDK
+
+In a javascript file, add the initialization options for the CSPR.click SDK. Make sure this script loads before CSPR.click is downloaded.
+
+The minimal configuration for the UI just defines the container for the navigation top bar and the root container of your app. We'll see other options later in this document.
+
+```javascript
+const clickUIOptions = {
+  uiContainer: 'csprclick-ui', 
+  rootAppElement: '#app',
+  showTopBar: true,  
+};
+```
+
+Next, define Client SDK options:
+
+```javascript
+const clickSDKOptions = {
+  appName: 'CSPR.click demo',
+  appId: 'csprclick-template',
+  providers: ['casper-wallet', 'casper-signer'],
+};
+```
+
+You can read more about the [CsprClickInitOptions ](https://docs.cspr.click/reference/types#csprclickinitoptions)object in the reference section.
+
+## What's next
+
+At this point, your application should show the CSPR.click top navigation bar and you can click on Sign in button to connect your favorite wallet.
+
+<figure><img src="https://4098787943-files.gitbook.io/~/files/v0/b/gitbook-x-prod.appspot.com/o/spaces%2FMwTFKCda4irtFhY9tqGt%2Fuploads%2Fgit-blob-37c68ecaf8ab4cf34c826cfb3919511ef7151493%2Fcsprclick-integration-html.png?alt=media" alt=""><figcaption></figcaption></figure>
+
+#### Listen to CSPR.click events
+
+You'll need to listen and respond to some events triggered when the user connects an account, switches to a different one, or closes the session.
+
+Refer to the [Handling events](https://docs.cspr.click/cspr.click-sdk/javascript/handling-events) page for information on how to add your listener functions.
+
+#### Ask the user to connect a wallet
+
+If you don't display the CSPR.click top navigation bar, you must have your own Sign in or Connect buttons and respond calling the CSPR.click library .
+
+Refer to the [Connecting a wallet](https://docs.cspr.click/cspr.click-sdk/javascript/connecting-a-wallet) page for information on how to trigger the wallet connection process.
+
+#### Request transaction approvals
+
+At some point, your application will need to interact with the Casper network by sending a transaction (aka deploy).\
+CSPR.click manages this process communicating with the active wallet to request the user to approve or reject the transaction. The UI depends on the wallet.
+
+Refer to the [Signing transactions](https://docs.cspr.click/cspr.click-sdk/javascript/signing-transactions) page for information on how to request the user a transaction approval. Also, look at [Processing status updates](https://docs.cspr.click/cspr.click-sdk/javascript/processing-status-updates) for information on how to listen for real-time status updates.
+
+#### Customize the top navigation bar
+
+You can add any of our predefined settings selectors or account menu items. And you can define your own.
+
+Refer to the [Customizing the top bar](https://docs.cspr.click/cspr.click-sdk/javascript/customizing-the-top-bar) section for complete reference on how to work with each of the setting elements in the top bar.
+
+# JavaScript
+
+This page guides you through the steps required to integrate the UI SDK into a non-React application.
+
+Check also the HTML/Javascript demo in the [csprclick-examples](https://github.com/make-software/csprclick-examples) repository to see the resulting application. In that repo you can find also examples or few other libraries/frameworks.
+
+## Download the CSPR.click UI runtime library from the CDN:
+
+Before the closing `head` tag, add a `script` element to download the CSPR.click scripts:
+
+```html
+  <!-- update to latest released version -->
+  <script defer="defer" src="https://cdn.cspr.click/ui/v1.9.0/csprclick-client-1.9.0.js"></script>
+</head>
+```
+
+## Add a container for the CSPR.click UI
+
+In your main layout file, add a `<div>` container where CSPR.click will inject some UI components like the navigation top bar or the 1-click sign in modal. Set an `id`, you'll need it later during CSPR.click initialization.
+
+```html
+<body>
+  <div id="app">
+    <div id="csprclick-ui"></div>
+    <div id="content">
+     <!-- you rapplication goes here -->
+    </div>
+  </div>
+</body>
+```
+
+Also, depending on the layout of your application and the grid system you're using, you'll need to add some CSS styles to this container to match the styles of the rest of the app (width, background color, etc).
+
+## Configure the initialization of the CSPR.click SDK
+
+In a javascript file, add the initialization options for the CSPR.click SDK. Make sure this script loads before CSPR.click is downloaded.
+
+The minimal configuration for the UI just defines the container for the navigation top bar and the root container of your app. We'll see other options later in this document.
+
+```javascript
+const clickUIOptions = {
+  uiContainer: 'csprclick-ui', 
+  rootAppElement: '#app',
+  showTopBar: true,  
+};
+```
+
+Next, define Client SDK options:
+
+```javascript
+const clickSDKOptions = {
+  appName: 'CSPR.click demo',
+  appId: 'csprclick-template',
+  providers: ['casper-wallet', 'casper-signer'],
+};
+```
+
+You can read more about the [CsprClickInitOptions ](https://docs.cspr.click/reference/types#csprclickinitoptions)object in the reference section.
+
+## What's next
+
+At this point, your application should show the CSPR.click top navigation bar and you can click on Sign in button to connect your favorite wallet.
+
+<figure><img src="https://4098787943-files.gitbook.io/~/files/v0/b/gitbook-x-prod.appspot.com/o/spaces%2FMwTFKCda4irtFhY9tqGt%2Fuploads%2Fgit-blob-37c68ecaf8ab4cf34c826cfb3919511ef7151493%2Fcsprclick-integration-html.png?alt=media" alt=""><figcaption></figcaption></figure>
+
+#### Listen to CSPR.click events
+
+You'll need to listen and respond to some events triggered when the user connects an account, switches to a different one, or closes the session.
+
+Refer to the [Handling events](https://docs.cspr.click/cspr.click-sdk/javascript/handling-events) page for information on how to add your listener functions.
+
+#### Ask the user to connect a wallet
+
+If you don't display the CSPR.click top navigation bar, you must have your own Sign in or Connect buttons and respond calling the CSPR.click library .
+
+Refer to the [Connecting a wallet](https://docs.cspr.click/cspr.click-sdk/javascript/connecting-a-wallet) page for information on how to trigger the wallet connection process.
+
+#### Request transaction approvals
+
+At some point, your application will need to interact with the Casper network by sending a transaction (aka deploy).\
+CSPR.click manages this process communicating with the active wallet to request the user to approve or reject the transaction. The UI depends on the wallet.
+
+Refer to the [Signing transactions](https://docs.cspr.click/cspr.click-sdk/javascript/signing-transactions) page for information on how to request the user a transaction approval. Also, look at [Processing status updates](https://docs.cspr.click/cspr.click-sdk/javascript/processing-status-updates) for information on how to listen for real-time status updates.
+
+#### Customize the top navigation bar
+
+You can add any of our predefined settings selectors or account menu items. And you can define your own.
+
+Refer to the [Customizing the top bar](https://docs.cspr.click/cspr.click-sdk/javascript/customizing-the-top-bar) section for complete reference on how to work with each of the setting elements in the top bar.
+
+# JavaScript
+
+This page guides you through the steps required to integrate the UI SDK into a non-React application.
+
+Check also the HTML/Javascript demo in the [csprclick-examples](https://github.com/make-software/csprclick-examples) repository to see the resulting application. In that repo you can find also examples or few other libraries/frameworks.
+
+## Download the CSPR.click UI runtime library from the CDN:
+
+Before the closing `head` tag, add a `script` element to download the CSPR.click scripts:
+
+```html
+  <!-- update to latest released version -->
+  <script defer="defer" src="https://cdn.cspr.click/ui/v1.9.0/csprclick-client-1.9.0.js"></script>
+</head>
+```
+
+## Add a container for the CSPR.click UI
+
+In your main layout file, add a `<div>` container where CSPR.click will inject some UI components like the navigation top bar or the 1-click sign in modal. Set an `id`, you'll need it later during CSPR.click initialization.
+
+```html
+<body>
+  <div id="app">
+    <div id="csprclick-ui"></div>
+    <div id="content">
+     <!-- you rapplication goes here -->
+    </div>
+  </div>
+</body>
+```
+
+Also, depending on the layout of your application and the grid system you're using, you'll need to add some CSS styles to this container to match the styles of the rest of the app (width, background color, etc).
+
+## Configure the initialization of the CSPR.click SDK
+
+In a javascript file, add the initialization options for the CSPR.click SDK. Make sure this script loads before CSPR.click is downloaded.
+
+The minimal configuration for the UI just defines the container for the navigation top bar and the root container of your app. We'll see other options later in this document.
+
+```javascript
+const clickUIOptions = {
+  uiContainer: 'csprclick-ui', 
+  rootAppElement: '#app',
+  showTopBar: true,  
+};
+```
+
+Next, define Client SDK options:
+
+```javascript
+const clickSDKOptions = {
+  appName: 'CSPR.click demo',
+  appId: 'csprclick-template',
+  providers: ['casper-wallet', 'casper-signer'],
+};
+```
+
+You can read more about the [CsprClickInitOptions ](https://docs.cspr.click/reference/types#csprclickinitoptions)object in the reference section.
+
+## What's next
+
+At this point, your application should show the CSPR.click top navigation bar and you can click on Sign in button to connect your favorite wallet.
+
+<figure><img src="https://4098787943-files.gitbook.io/~/files/v0/b/gitbook-x-prod.appspot.com/o/spaces%2FMwTFKCda4irtFhY9tqGt%2Fuploads%2Fgit-blob-37c68ecaf8ab4cf34c826cfb3919511ef7151493%2Fcsprclick-integration-html.png?alt=media" alt=""><figcaption></figcaption></figure>
+
+#### Listen to CSPR.click events
+
+You'll need to listen and respond to some events triggered when the user connects an account, switches to a different one, or closes the session.
+
+Refer to the [Handling events](https://docs.cspr.click/cspr.click-sdk/javascript/handling-events) page for information on how to add your listener functions.
+
+#### Ask the user to connect a wallet
+
+If you don't display the CSPR.click top navigation bar, you must have your own Sign in or Connect buttons and respond calling the CSPR.click library .
+
+Refer to the [Connecting a wallet](https://docs.cspr.click/cspr.click-sdk/javascript/connecting-a-wallet) page for information on how to trigger the wallet connection process.
+
+#### Request transaction approvals
+
+At some point, your application will need to interact with the Casper network by sending a transaction (aka deploy).\
+CSPR.click manages this process communicating with the active wallet to request the user to approve or reject the transaction. The UI depends on the wallet.
+
+Refer to the [Signing transactions](https://docs.cspr.click/cspr.click-sdk/javascript/signing-transactions) page for information on how to request the user a transaction approval. Also, look at [Processing status updates](https://docs.cspr.click/cspr.click-sdk/javascript/processing-status-updates) for information on how to listen for real-time status updates.
+
+#### Customize the top navigation bar
+
+You can add any of our predefined settings selectors or account menu items. And you can define your own.
+
+Refer to the [Customizing the top bar](https://docs.cspr.click/cspr.click-sdk/javascript/customizing-the-top-bar) section for complete reference on how to work with each of the setting elements in the top bar.
+
+# Network selector
+
+<figure><img src="https://4098787943-files.gitbook.io/~/files/v0/b/gitbook-x-prod.appspot.com/o/spaces%2FMwTFKCda4irtFhY9tqGt%2Fuploads%2Fgit-blob-3a32e786fabf9896fe51797242c9fd424af02159%2Fimage%20(2).png?alt=media" alt=""><figcaption><p>Network selector widget</p></figcaption></figure>
+
+If your application can switch between Mainnet and Testnet networks you may want to add the network selector widget to the CSPR.click navigation bar.
+
+## Network selector set up
+
+Define an array with the list of networks your application supports:
+
+```javascript
+const NETWORKS = ['Mainnet', 'Testnet'];
+
+const networkSettings = {
+    networks: NETWORKS,
+    currentNetwork: NETWORKS[0],
+    onNetworkSwitch: (n) => {
+        console.log('Network selected', n);
+        window.csprclickUI.setNetwork(n);
+    },
+}
+```
+
+Then, add this settings object to the UI initialization defined before:
+
+```javascript
+const clickUIOptions = {
+  uiContainer: 'csprclick-ui', 
+  rootAppElement: '#app',
+  showTopBar: true,
+  networkSettings,
+};
+```
+
+### Customize the network icons
+
+You can also specify your custom icons for each of the networks:
+
+```tsx
+import mainnetIcon from './assets/ico-mainnet.svg'
+import testnetIcon from './assets/ico-testnet.svg'
+
+const NETWORKS = [
+  { title: 'Mainnet', icon: mainnetIcon },
+  { title: 'Testnet', icon: testnetIcon }
+];
+```
+
+# Network selector
+
+<figure><img src="https://4098787943-files.gitbook.io/~/files/v0/b/gitbook-x-prod.appspot.com/o/spaces%2FMwTFKCda4irtFhY9tqGt%2Fuploads%2Fgit-blob-3a32e786fabf9896fe51797242c9fd424af02159%2Fimage%20(2).png?alt=media" alt=""><figcaption><p>Network selector widget</p></figcaption></figure>
+
+If your application can switch between Mainnet and Testnet networks you may want to add the network selector widget to the CSPR.click navigation bar.
+
+## Network selector set up
+
+Define an array with the list of networks your application supports:
+
+```javascript
+const NETWORKS = ['Mainnet', 'Testnet'];
+
+const networkSettings = {
+    networks: NETWORKS,
+    currentNetwork: NETWORKS[0],
+    onNetworkSwitch: (n) => {
+        console.log('Network selected', n);
+        window.csprclickUI.setNetwork(n);
+    },
+}
+```
+
+Then, add this settings object to the UI initialization defined before:
+
+```javascript
+const clickUIOptions = {
+  uiContainer: 'csprclick-ui', 
+  rootAppElement: '#app',
+  showTopBar: true,
+  networkSettings,
+};
+```
+
+### Customize the network icons
+
+You can also specify your custom icons for each of the networks:
+
+```tsx
+import mainnetIcon from './assets/ico-mainnet.svg'
+import testnetIcon from './assets/ico-testnet.svg'
+
+const NETWORKS = [
+  { title: 'Mainnet', icon: mainnetIcon },
+  { title: 'Testnet', icon: testnetIcon }
+];
+```
+
+# Network selector
+
+<figure><img src="https://4098787943-files.gitbook.io/~/files/v0/b/gitbook-x-prod.appspot.com/o/spaces%2FMwTFKCda4irtFhY9tqGt%2Fuploads%2Fgit-blob-3a32e786fabf9896fe51797242c9fd424af02159%2Fimage%20(2).png?alt=media" alt=""><figcaption><p>Network selector widget</p></figcaption></figure>
+
+If your application can switch between Mainnet and Testnet networks you may want to add the network selector widget to the CSPR.click navigation bar.
+
+## Network selector set up
+
+Define an array with the list of networks your application supports:
+
+```javascript
+const NETWORKS = ['Mainnet', 'Testnet'];
+
+const networkSettings = {
+    networks: NETWORKS,
+    currentNetwork: NETWORKS[0],
+    onNetworkSwitch: (n) => {
+        console.log('Network selected', n);
+        window.csprclickUI.setNetwork(n);
+    },
+}
+```
+
+Then, add this settings object to the UI initialization defined before:
+
+```javascript
+const clickUIOptions = {
+  uiContainer: 'csprclick-ui', 
+  rootAppElement: '#app',
+  showTopBar: true,
+  networkSettings,
+};
+```
+
+### Customize the network icons
+
+You can also specify your custom icons for each of the networks:
+
+```tsx
+import mainnetIcon from './assets/ico-mainnet.svg'
+import testnetIcon from './assets/ico-testnet.svg'
+
+const NETWORKS = [
+  { title: 'Mainnet', icon: mainnetIcon },
+  { title: 'Testnet', icon: testnetIcon }
+];
+```
+
+# Network selector
+
+<figure><img src="https://4098787943-files.gitbook.io/~/files/v0/b/gitbook-x-prod.appspot.com/o/spaces%2FMwTFKCda4irtFhY9tqGt%2Fuploads%2Fgit-blob-3a32e786fabf9896fe51797242c9fd424af02159%2Fimage%20(2).png?alt=media" alt=""><figcaption><p>Network selector widget</p></figcaption></figure>
+
+If your application can switch between Mainnet and Testnet networks you may want to add the network selector widget to the CSPR.click navigation bar.
+
+## Network selector set up
+
+Define an array with the list of networks your application supports:
+
+```javascript
+const NETWORKS = ['Mainnet', 'Testnet'];
+
+const networkSettings = {
+    networks: NETWORKS,
+    currentNetwork: NETWORKS[0],
+    onNetworkSwitch: (n) => {
+        console.log('Network selected', n);
+        window.csprclickUI.setNetwork(n);
+    },
+}
+```
+
+Then, add this settings object to the UI initialization defined before:
+
+```javascript
+const clickUIOptions = {
+  uiContainer: 'csprclick-ui', 
+  rootAppElement: '#app',
+  showTopBar: true,
+  networkSettings,
+};
+```
+
+### Customize the network icons
+
+You can also specify your custom icons for each of the networks:
+
+```tsx
+import mainnetIcon from './assets/ico-mainnet.svg'
+import testnetIcon from './assets/ico-testnet.svg'
+
+const NETWORKS = [
+  { title: 'Mainnet', icon: mainnetIcon },
+  { title: 'Testnet', icon: testnetIcon }
+];
+```
+
+# Network selector
+
+<figure><img src="https://4098787943-files.gitbook.io/~/files/v0/b/gitbook-x-prod.appspot.com/o/spaces%2FMwTFKCda4irtFhY9tqGt%2Fuploads%2Fgit-blob-3a32e786fabf9896fe51797242c9fd424af02159%2Fimage%20(2).png?alt=media" alt=""><figcaption><p>Network selector widget</p></figcaption></figure>
+
+If your application can switch between Mainnet and Testnet networks you may want to add the network selector widget to the CSPR.click navigation bar.
+
+## Network selector set up
+
+Define an array with the list of networks your application supports:
+
+```javascript
+const NETWORKS = ['Mainnet', 'Testnet'];
+
+const networkSettings = {
+    networks: NETWORKS,
+    currentNetwork: NETWORKS[0],
+    onNetworkSwitch: (n) => {
+        console.log('Network selected', n);
+        window.csprclickUI.setNetwork(n);
+    },
+}
+```
+
+Then, add this settings object to the UI initialization defined before:
+
+```javascript
+const clickUIOptions = {
+  uiContainer: 'csprclick-ui', 
+  rootAppElement: '#app',
+  showTopBar: true,
+  networkSettings,
+};
+```
+
+### Customize the network icons
+
+You can also specify your custom icons for each of the networks:
+
+```tsx
+import mainnetIcon from './assets/ico-mainnet.svg'
+import testnetIcon from './assets/ico-testnet.svg'
+
+const NETWORKS = [
+  { title: 'Mainnet', icon: mainnetIcon },
+  { title: 'Testnet', icon: testnetIcon }
+];
+```
+
+# Network selector
+
+<figure><img src="https://4098787943-files.gitbook.io/~/files/v0/b/gitbook-x-prod.appspot.com/o/spaces%2FMwTFKCda4irtFhY9tqGt%2Fuploads%2Fgit-blob-3a32e786fabf9896fe51797242c9fd424af02159%2Fimage%20(2).png?alt=media" alt=""><figcaption><p>Network selector widget</p></figcaption></figure>
+
+If your application can switch between Mainnet and Testnet networks you may want to add the network selector widget to the CSPR.click navigation bar.
+
+## Network selector set up
+
+Define an array with the list of networks your application supports:
+
+```javascript
+const NETWORKS = ['Mainnet', 'Testnet'];
+
+const networkSettings = {
+    networks: NETWORKS,
+    currentNetwork: NETWORKS[0],
+    onNetworkSwitch: (n) => {
+        console.log('Network selected', n);
+        window.csprclickUI.setNetwork(n);
+    },
+}
+```
+
+Then, add this settings object to the UI initialization defined before:
+
+```javascript
+const clickUIOptions = {
+  uiContainer: 'csprclick-ui', 
+  rootAppElement: '#app',
+  showTopBar: true,
+  networkSettings,
+};
+```
+
+### Customize the network icons
+
+You can also specify your custom icons for each of the networks:
+
+```tsx
+import mainnetIcon from './assets/ico-mainnet.svg'
+import testnetIcon from './assets/ico-testnet.svg'
+
+const NETWORKS = [
+  { title: 'Mainnet', icon: mainnetIcon },
+  { title: 'Testnet', icon: testnetIcon }
+];
+```
+
+# Network selector
+
+<figure><img src="https://4098787943-files.gitbook.io/~/files/v0/b/gitbook-x-prod.appspot.com/o/spaces%2FMwTFKCda4irtFhY9tqGt%2Fuploads%2Fgit-blob-3a32e786fabf9896fe51797242c9fd424af02159%2Fimage%20(2).png?alt=media" alt=""><figcaption><p>Network selector widget</p></figcaption></figure>
+
+If your application can switch between Mainnet and Testnet networks you may want to add the network selector widget to the CSPR.click navigation bar.
+
+## Network selector set up
+
+Define an array with the list of networks your application supports:
+
+```javascript
+const NETWORKS = ['Mainnet', 'Testnet'];
+
+const networkSettings = {
+    networks: NETWORKS,
+    currentNetwork: NETWORKS[0],
+    onNetworkSwitch: (n) => {
+        console.log('Network selected', n);
+        window.csprclickUI.setNetwork(n);
+    },
+}
+```
+
+Then, add this settings object to the UI initialization defined before:
+
+```javascript
+const clickUIOptions = {
+  uiContainer: 'csprclick-ui', 
+  rootAppElement: '#app',
+  showTopBar: true,
+  networkSettings,
+};
+```
+
+### Customize the network icons
+
+You can also specify your custom icons for each of the networks:
+
+```tsx
+import mainnetIcon from './assets/ico-mainnet.svg'
+import testnetIcon from './assets/ico-testnet.svg'
+
+const NETWORKS = [
+  { title: 'Mainnet', icon: mainnetIcon },
+  { title: 'Testnet', icon: testnetIcon }
+];
+```

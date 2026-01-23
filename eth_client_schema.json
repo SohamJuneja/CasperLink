@@ -1,0 +1,434 @@
+{
+  "casper_contract_schema_version": 1,
+  "toolchain": "rustc 1.85.0-nightly (d117b7f21 2024-12-31)",
+  "authors": [],
+  "repository": null,
+  "homepage": null,
+  "contract_name": "EthClient",
+  "contract_version": "0.9.0",
+  "types": [
+    {
+      "struct": {
+        "name": "BlockHeaderSubmitted",
+        "description": null,
+        "members": [
+          {
+            "name": "block_number",
+            "description": null,
+            "ty": "U64"
+          },
+          {
+            "name": "block_hash",
+            "description": null,
+            "ty": {
+              "ByteArray": 32
+            }
+          },
+          {
+            "name": "submitter",
+            "description": null,
+            "ty": "Key"
+          }
+        ]
+      }
+    },
+    {
+      "struct": {
+        "name": "RelayerAdded",
+        "description": null,
+        "members": [
+          {
+            "name": "eth_address",
+            "description": null,
+            "ty": {
+              "ByteArray": 20
+            }
+          },
+          {
+            "name": "relayer_index",
+            "description": null,
+            "ty": "U32"
+          }
+        ]
+      }
+    },
+    {
+      "struct": {
+        "name": "RelayerRemoved",
+        "description": null,
+        "members": [
+          {
+            "name": "eth_address",
+            "description": null,
+            "ty": {
+              "ByteArray": 20
+            }
+          }
+        ]
+      }
+    },
+    {
+      "struct": {
+        "name": "ThresholdUpdated",
+        "description": null,
+        "members": [
+          {
+            "name": "old_threshold",
+            "description": null,
+            "ty": "U32"
+          },
+          {
+            "name": "new_threshold",
+            "description": null,
+            "ty": "U32"
+          }
+        ]
+      }
+    }
+  ],
+  "errors": [],
+  "entry_points": [
+    {
+      "name": "submit_block_header_with_signatures",
+      "description": "Submit an Ethereum block header with M-of-N signatures (flat parameters)",
+      "is_mutable": true,
+      "arguments": [
+        {
+          "name": "block_number",
+          "description": null,
+          "ty": "U64",
+          "optional": false
+        },
+        {
+          "name": "block_hash",
+          "description": null,
+          "ty": {
+            "ByteArray": 32
+          },
+          "optional": false
+        },
+        {
+          "name": "state_root",
+          "description": null,
+          "ty": {
+            "ByteArray": 32
+          },
+          "optional": false
+        },
+        {
+          "name": "receipts_root",
+          "description": null,
+          "ty": {
+            "ByteArray": 32
+          },
+          "optional": false
+        },
+        {
+          "name": "signatures",
+          "description": null,
+          "ty": {
+            "List": {
+              "List": "U8"
+            }
+          },
+          "optional": false
+        }
+      ],
+      "return_ty": "Unit",
+      "is_contract_context": true,
+      "access": "public"
+    },
+    {
+      "name": "get_block_hash",
+      "description": "",
+      "is_mutable": false,
+      "arguments": [
+        {
+          "name": "block_number",
+          "description": null,
+          "ty": "U64",
+          "optional": false
+        }
+      ],
+      "return_ty": {
+        "Option": {
+          "ByteArray": 32
+        }
+      },
+      "is_contract_context": true,
+      "access": "public"
+    },
+    {
+      "name": "get_state_root",
+      "description": "",
+      "is_mutable": false,
+      "arguments": [
+        {
+          "name": "block_number",
+          "description": null,
+          "ty": "U64",
+          "optional": false
+        }
+      ],
+      "return_ty": {
+        "Option": {
+          "ByteArray": 32
+        }
+      },
+      "is_contract_context": true,
+      "access": "public"
+    },
+    {
+      "name": "get_receipts_root",
+      "description": "",
+      "is_mutable": false,
+      "arguments": [
+        {
+          "name": "block_number",
+          "description": null,
+          "ty": "U64",
+          "optional": false
+        }
+      ],
+      "return_ty": {
+        "Option": {
+          "ByteArray": 32
+        }
+      },
+      "is_contract_context": true,
+      "access": "public"
+    },
+    {
+      "name": "is_block_known",
+      "description": "",
+      "is_mutable": false,
+      "arguments": [
+        {
+          "name": "block_number",
+          "description": null,
+          "ty": "U64",
+          "optional": false
+        }
+      ],
+      "return_ty": "Bool",
+      "is_contract_context": true,
+      "access": "public"
+    },
+    {
+      "name": "get_latest_block",
+      "description": "",
+      "is_mutable": false,
+      "arguments": [],
+      "return_ty": "U64",
+      "is_contract_context": true,
+      "access": "public"
+    },
+    {
+      "name": "get_threshold",
+      "description": "Get the current threshold",
+      "is_mutable": false,
+      "arguments": [],
+      "return_ty": "U32",
+      "is_contract_context": true,
+      "access": "public"
+    },
+    {
+      "name": "get_relayer_count",
+      "description": "Get the total relayer count",
+      "is_mutable": false,
+      "arguments": [],
+      "return_ty": "U32",
+      "is_contract_context": true,
+      "access": "public"
+    },
+    {
+      "name": "is_eth_relayer",
+      "description": "Check if an Ethereum address is an authorized relayer",
+      "is_mutable": false,
+      "arguments": [
+        {
+          "name": "eth_address",
+          "description": null,
+          "ty": {
+            "ByteArray": 20
+          },
+          "optional": false
+        }
+      ],
+      "return_ty": "Bool",
+      "is_contract_context": true,
+      "access": "public"
+    },
+    {
+      "name": "get_eth_relayer",
+      "description": "Get relayer Ethereum address by index",
+      "is_mutable": false,
+      "arguments": [
+        {
+          "name": "index",
+          "description": null,
+          "ty": "U32",
+          "optional": false
+        }
+      ],
+      "return_ty": {
+        "Option": {
+          "ByteArray": 20
+        }
+      },
+      "is_contract_context": true,
+      "access": "public"
+    },
+    {
+      "name": "get_authorized_relayers",
+      "description": "Get all authorized relayer Ethereum addresses",
+      "is_mutable": false,
+      "arguments": [],
+      "return_ty": {
+        "List": {
+          "ByteArray": 20
+        }
+      },
+      "is_contract_context": true,
+      "access": "public"
+    },
+    {
+      "name": "add_eth_relayer",
+      "description": "Add a new relayer by Ethereum address (M-of-N mode)",
+      "is_mutable": true,
+      "arguments": [
+        {
+          "name": "eth_address",
+          "description": null,
+          "ty": {
+            "ByteArray": 20
+          },
+          "optional": false
+        }
+      ],
+      "return_ty": "Unit",
+      "is_contract_context": true,
+      "access": "public"
+    },
+    {
+      "name": "remove_eth_relayer",
+      "description": "Remove a relayer by Ethereum address (by deauthorizing)",
+      "is_mutable": true,
+      "arguments": [
+        {
+          "name": "eth_address",
+          "description": null,
+          "ty": {
+            "ByteArray": 20
+          },
+          "optional": false
+        }
+      ],
+      "return_ty": "Unit",
+      "is_contract_context": true,
+      "access": "public"
+    },
+    {
+      "name": "set_threshold",
+      "description": "Update the signature threshold",
+      "is_mutable": true,
+      "arguments": [
+        {
+          "name": "new_threshold",
+          "description": null,
+          "ty": "U32",
+          "optional": false
+        }
+      ],
+      "return_ty": "Unit",
+      "is_contract_context": true,
+      "access": "public"
+    },
+    {
+      "name": "set_admin",
+      "description": "Transfer admin role",
+      "is_mutable": true,
+      "arguments": [
+        {
+          "name": "new_admin",
+          "description": null,
+          "ty": "Key",
+          "optional": false
+        }
+      ],
+      "return_ty": "Unit",
+      "is_contract_context": true,
+      "access": "public"
+    }
+  ],
+  "events": [
+    {
+      "name": "BlockHeaderSubmitted",
+      "ty": "BlockHeaderSubmitted"
+    },
+    {
+      "name": "RelayerAdded",
+      "ty": "RelayerAdded"
+    },
+    {
+      "name": "RelayerRemoved",
+      "ty": "RelayerRemoved"
+    },
+    {
+      "name": "ThresholdUpdated",
+      "ty": "ThresholdUpdated"
+    }
+  ],
+  "call": {
+    "wasm_file_name": "EthClient.wasm",
+    "description": "Initialize with Ethereum address relayers for M-of-N verification",
+    "arguments": [
+      {
+        "name": "odra_cfg_package_hash_key_name",
+        "description": "The arg name for the package hash key name.",
+        "ty": "String",
+        "optional": false
+      },
+      {
+        "name": "odra_cfg_allow_key_override",
+        "description": "If true and the key specified in odra_cfg_package_hash_key_name already exists, it will be overwritten.",
+        "ty": "Bool",
+        "optional": false
+      },
+      {
+        "name": "odra_cfg_is_upgradable",
+        "description": "The arg name for the contract upgradeability setting.",
+        "ty": "Bool",
+        "optional": false
+      },
+      {
+        "name": "odra_cfg_is_upgrade",
+        "description": "The arg name for telling the installer that the contract is being upgraded.",
+        "ty": "Bool",
+        "optional": false
+      },
+      {
+        "name": "admin",
+        "description": null,
+        "ty": "Key",
+        "optional": false
+      },
+      {
+        "name": "relayer_eth_addresses",
+        "description": null,
+        "ty": {
+          "List": {
+            "ByteArray": 20
+          }
+        },
+        "optional": false
+      },
+      {
+        "name": "threshold",
+        "description": null,
+        "ty": "U32",
+        "optional": false
+      }
+    ]
+  }
+}

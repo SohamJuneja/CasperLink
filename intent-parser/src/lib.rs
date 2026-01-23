@@ -2,6 +2,14 @@
 
 use odra::prelude::*;
 use odra::casper_types::U512;
+use odra::ContractRef;
+
+/// External contract interface for TokenFactory
+/// This matches the actual TokenFactory.burn() signature from the schema
+#[odra::external_contract]
+trait TokenFactoryInterface {
+    fn burn(&mut self, cep18_address: Address, amount: U512, eth_recipient: String);
+}
 
 /// Represents a cross-chain intent with pricing info
 #[odra::odra_type]
@@ -27,16 +35,48 @@ pub struct IntentParser {
     owner: Var<Address>,
     oracle_address: Var<Address>,
     slippage_bps: Var<u64>,
+    token_factory: Var<Address>,
 }
 
 #[odra::module]
 impl IntentParser {
-    pub fn init(&mut self, oracle_contract: Address) {
+    pub fn init(&mut self) {
         let caller = self.env().caller();
         self.owner.set(caller);
-        self.oracle_address.set(oracle_contract);
         self.next_intent_id.set(1);
         self.slippage_bps.set(100);
+    }
+    
+    pub fn set_oracle(&mut self, oracle_contract: Address) {
+        let caller = self.env().caller();
+        let owner = match self.owner.get() {
+            Some(o) => o,
+            None => self.env().revert(IntentError::Unauthorized),
+        };
+
+        if caller != owner {
+            self.env().revert(IntentError::Unauthorized);
+        }
+
+        self.oracle_address.set(oracle_contract);
+    }
+
+    pub fn set_token_factory(&mut self, token_factory: Address) {
+        let caller = self.env().caller();
+        let owner = match self.owner.get() {
+            Some(o) => o,
+            None => self.env().revert(IntentError::Unauthorized),
+        };
+
+        if caller != owner {
+            self.env().revert(IntentError::Unauthorized);
+        }
+
+        self.token_factory.set(token_factory);
+    }
+
+    pub fn get_token_factory(&self) -> Option<Address> {
+        self.token_factory.get()
     }
     
     pub fn create_intent(
@@ -119,17 +159,148 @@ impl IntentParser {
             Some(o) => o,
             None => self.env().revert(IntentError::Unauthorized),
         };
-        
+
         if caller != owner {
             self.env().revert(IntentError::Unauthorized);
         }
-        
+
         self.slippage_bps.set(slippage_bps);
     }
+
+    /// Execute an intent - marks it as executing (status = 2)
+    /// This is called when the user wants to execute the bridge
+    /// Emits an event that can be picked up by relayers
+    pub fn execute_intent(&mut self, intent_id: String, eth_recipient: String) {
+        // Parse intent_id from string to u64
+        let id: u64 = match intent_id.parse() {
+            Ok(n) => n,
+            Err(_) => self.env().revert(IntentError::InvalidIntentId),
+        };
+
+        let mut intent = match self.intents.get(&id) {
+            Some(i) => i,
+            None => self.env().revert(IntentError::NotFound),
+        };
+
+        // Only the intent creator can execute it
+        let caller = self.env().caller();
+        if caller != intent.user {
+            self.env().revert(IntentError::Unauthorized);
+        }
+
+        // Update status to Executing (2)
+        intent.status = 2;
+
+        self.intents.set(&id, intent);
+
+        // Emit event with eth_recipient for bridge relayers
+        self.env().emit_event(IntentExecuted {
+            intent_id: id,
+            user: caller,
+            eth_recipient,
+            timestamp: self.env().get_block_time(),
+        });
+    }
+
+    /// Execute intent with direct TokenFactory.burn() call
+    /// This performs REAL bridge execution by calling TokenFactory
+    /// 
+    /// Parameters:
+    /// - intent_id: The intent ID to execute (as string)
+    /// - cep18_token: The CEP-18 token address (hash format like "hash-62d62d5c...")
+    /// - eth_recipient: Ethereum address to receive tokens (must start with 0x)
+    pub fn execute_intent_with_burn(
+        &mut self,
+        intent_id: String,
+        cep18_token: Address,
+        eth_recipient: String,
+    ) {
+        // Parse intent_id from string to u64
+        let id: u64 = match intent_id.parse() {
+            Ok(n) => n,
+            Err(_) => self.env().revert(IntentError::InvalidIntentId),
+        };
+
+        let mut intent = match self.intents.get(&id) {
+            Some(i) => i,
+            None => self.env().revert(IntentError::NotFound),
+        };
+
+        // Only the intent creator can execute it
+        let caller = self.env().caller();
+        if caller != intent.user {
+            self.env().revert(IntentError::Unauthorized);
+        }
+
+        // Validate eth_recipient format (should start with 0x and be 42 chars)
+        if !eth_recipient.starts_with("0x") || eth_recipient.len() != 42 {
+            self.env().revert(IntentError::InvalidEthAddress);
+        }
+
+        // Get TokenFactory address
+        let token_factory = match self.token_factory.get() {
+            Some(addr) => addr,
+            None => self.env().revert(IntentError::TokenFactoryNotSet),
+        };
+
+        // Store amount before moving intent
+        let amount = intent.amount_in;
+
+        // Update status to Executing (2)
+        intent.status = 2;
+        self.intents.set(&id, intent);
+
+        // Call TokenFactory.burn() to execute the actual bridge
+        // The TokenFactory will:
+        // 1. Burn the CEP-18 tokens on Casper
+        // 2. Emit a TokensBurned event
+        // 3. Relayers will watch for this event and unlock tokens on Ethereum
+        let mut token_factory_ref = TokenFactoryInterfaceContractRef::new(self.env(), token_factory);
+        token_factory_ref.burn(cep18_token, amount, eth_recipient.clone());
+
+        // Emit event for tracking
+        self.env().emit_event(IntentExecuted {
+            intent_id: id,
+            user: caller,
+            eth_recipient,
+            timestamp: self.env().get_block_time(),
+        });
+    }
+
+    /// Complete an intent - marks it as completed (status = 3)
+    pub fn complete_intent(&mut self, intent_id: u64) {
+        let mut intent = match self.intents.get(&intent_id) {
+            Some(i) => i,
+            None => self.env().revert(IntentError::NotFound),
+        };
+
+        // Only the intent creator can complete it
+        let caller = self.env().caller();
+        if caller != intent.user {
+            self.env().revert(IntentError::Unauthorized);
+        }
+
+        // Update status to Completed (3)
+        intent.status = 3;
+
+        self.intents.set(&intent_id, intent);
+    }
+}
+
+/// Event emitted when an intent is executed
+#[odra::event]
+pub struct IntentExecuted {
+    pub intent_id: u64,
+    pub user: Address,
+    pub eth_recipient: String,
+    pub timestamp: u64,
 }
 
 #[odra::odra_error]
 pub enum IntentError {
     NotFound = 1,
     Unauthorized = 2,
+    InvalidIntentId = 3,
+    TokenFactoryNotSet = 4,
+    InvalidEthAddress = 5,
 }
