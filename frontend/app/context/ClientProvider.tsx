@@ -5,15 +5,7 @@ import styled, { ThemeProvider } from 'styled-components';
 import { ThemeModeType, CsprClickThemes } from '@make-software/csprclick-ui';
 import { useState } from 'react';
 
-const ClickProvider = dynamic(
-  () => import('@make-software/csprclick-ui').then((mod) => mod.ClickProvider),
-  { ssr: false }
-);
-
-const ClickUI = dynamic(
-  () => import('@make-software/csprclick-ui').then((mod) => mod.ClickUI),
-  { ssr: false }
-);
+import { ClickProvider, ClickUI } from '@make-software/csprclick-ui';
 
 // Get appId - must be accessed at runtime, not module level
 const getAppId = () => {
@@ -54,13 +46,13 @@ const TopBarContainer = styled.div({
 
 export default function ClientProvider({ children }: { children: React.ReactNode }) {
   const [themeMode] = useState<ThemeModeType>(ThemeModeType.dark);
-  const topBarSettings = {}; // Reset to empty object to fix type error
+  const topBarSettings = { wallet: true }; // Try wallet: true
 
   // Create options at component level to ensure env var is read at runtime
   const clickOptions = {
     appName: 'CasperLink',
     contentMode: 'popup', // Explicitly set to popup mode to show wallet button
-    providers: ['casper'], // Changed from 'casper-wallet' to 'casper'
+    providers: ['casper-wallet'], // Reverted to 'casper-wallet'
     appId: getAppId(),
   };
 
@@ -69,7 +61,8 @@ export default function ClientProvider({ children }: { children: React.ReactNode
       <ThemeProvider theme={AppTheme.dark}>
         <TopBarSection>
           <TopBarContainer>
-            <ClickUI topBarSettings={topBarSettings} themeMode={themeMode} />
+            {console.log('Rendering ClickUI')}
+            <ClickUI topBarSettings={topBarSettings} themeMode={themeMode} style={{ border: '1px solid red' }} />
           </TopBarContainer>
         </TopBarSection>
         <div style={{ paddingTop: '80px' }}>{children}</div>
