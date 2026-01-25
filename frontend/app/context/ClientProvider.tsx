@@ -1,6 +1,5 @@
 'use client';
 
-import dynamic from 'next/dynamic';
 import styled, { ThemeProvider } from 'styled-components';
 import { ThemeModeType, CsprClickThemes } from '@make-software/csprclick-ui';
 import { useState } from 'react';
@@ -46,7 +45,7 @@ const TopBarContainer = styled.div({
 
 export default function ClientProvider({ children }: { children: React.ReactNode }) {
   const [themeMode] = useState<ThemeModeType>(ThemeModeType.dark);
-  const topBarSettings = { wallet: true }; // Try wallet: true
+  const topBarSettings: any = { wallet: true }; // Force show wallet button
 
   // Create options at component level to ensure env var is read at runtime
   const clickOptions = {
@@ -61,8 +60,7 @@ export default function ClientProvider({ children }: { children: React.ReactNode
       <ThemeProvider theme={AppTheme.dark}>
         <TopBarSection>
           <TopBarContainer>
-            {console.log('Rendering ClickUI')}
-            <ClickUI topBarSettings={topBarSettings} themeMode={themeMode} style={{ border: '1px solid red' }} />
+            <ClickUI topBarSettings={topBarSettings} themeMode={themeMode} />
           </TopBarContainer>
         </TopBarSection>
         <div style={{ paddingTop: '80px' }}>{children}</div>
