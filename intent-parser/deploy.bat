@@ -12,8 +12,8 @@ set SECRET_KEY=E:\blockchain\CasperLink\secret_key.pem
 REM Oracle contract address (already deployed)
 set ORACLE_HASH=hash-c558b459ba4e9d8a379bcef9629660d8cf9c34fa6e9c1165324959e433bc22ac
 
-REM TokenFactory contract address from CSPRBridge
-set TOKEN_FACTORY_HASH=hash-03d00e4f26b4717f35b13f154c2da117c4d146607ad85a93104c7441392ccf4b
+REM TokenFactory contract address from CSPRBridge (Multi-chain version from David)
+set TOKEN_FACTORY_HASH=hash-bf16ba78a7ecfb0e64756aa8468251110f29639f38ccaf9bdb01b6f38a15c2f2
 
 REM Check if secret key is set
 if "%SECRET_KEY%"=="path\to\your\secret_key.pem" (

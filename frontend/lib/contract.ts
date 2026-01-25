@@ -315,25 +315,22 @@ export class ContractService {
     const senderPublicKey = CLPublicKey.fromHex(publicKey.toLowerCase());
     const deployParams = new DeployUtil.DeployParams(senderPublicKey, this.chainName);
 
-    // Convert cep18_address to proper Key type
-    // Odra's Address is casper_types::Key, which needs proper construction
+    // Convert cep18_address to proper Key type for Odra's Address (casper_types::Key)
+    // Following the same pattern as CSPR.trade swap (which works!)
     const hashHex = cep18Address.replace('hash-', '');
     const hashBytes = Uint8Array.from(Buffer.from(hashHex, 'hex'));
 
-    // Create key bytes with Hash variant prefix (0x01) + 32-byte hash = 33 bytes total
+    // CRITICAL: Create key bytes with Hash variant prefix (0x01) + 32-byte hash = 33 bytes total
+    // This matches the Casper Key format for Hash variant
     const keyBytes = new Uint8Array(33);
-    keyBytes[0] = 1; // Hash variant
+    keyBytes[0] = 1; // 0x01 = Hash variant for Casper Key type
     keyBytes.set(hashBytes, 1);
 
-    // Try creating a CLValue for the Key using a custom approach
-    // Since CLValueBuilder doesn't have a .key() method that accepts our data,
-    // we'll create the CLByteArray and pass it directly
-    const keyByteArray = new CLByteArray(keyBytes);
-
-    // Build runtime args using the ByteArray directly
+    // Build runtime args for execute_intent_with_burn entry point
+    // Use CLValueBuilder.byteArray() for the Key (same as CSPR.trade pattern)
     const args = RuntimeArgs.fromMap({
       intent_id: CLValueBuilder.string(numericId),
-      cep18_token: keyByteArray,  // Pass the ByteArray with 33 bytes (0x01 + hash)
+      cep18_token: CLValueBuilder.byteArray(keyBytes),  // Pass as ByteArray with 0x01 prefix
       eth_recipient: CLValueBuilder.string(ethRecipient),
     });
 

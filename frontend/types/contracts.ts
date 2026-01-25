@@ -41,9 +41,11 @@ export interface Intent {
 
   export const CONTRACT_CONFIG: ContractConfig = {
     oraclePackageHash: 'hash-c558b459ba4e9d8a379bcef9629660d8cf9c34fa6e9c1165324959e433bc22ac',
-    intentParserPackageHash: 'hash-b6aaa644364bcd232691517396431417d926a0d256f6c0d6fa05d505f1e027d0',
-    // TokenFactory from csprbridge - handles burn/mint for real bridge execution
-    tokenFactoryPackageHash: 'hash-03d00e4f26b4717f35b13f154c2da117c4d146607ad85a93104c7441392ccf4b',
+    // IntentParser v5 with CSPR.bridge integration (deployed Jan 25, 2026)
+    // Properly initialized with init() - tx: 19df0c36cb0ada3f492611bf2b63d1453f7f231958d1c1805cc72a3a992c1dc5
+    intentParserPackageHash: 'hash-80c2ba64d5f488f77d33cdb54f9d23e855d32988d319270444ffe0f649743523',
+    // TokenFactory from csprbridge - Multi-chain version
+    tokenFactoryPackageHash: 'hash-bf16ba78a7ecfb0e64756aa8468251110f29639f38ccaf9bdb01b6f38a15c2f2',
     nodeAddress: 'https://node.testnet.casper.network/rpc',
     chainName: 'casper-test',
   };

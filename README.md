@@ -1,53 +1,72 @@
 # 🔗 CasperLink
 
-**Cross-Chain Intent Execution Framework with Oracle Integration**
+**Cross-Chain Intent Execution Framework with Real On-Chain Execution**
 
 [![Casper Hackathon 2026](https://img.shields.io/badge/Casper-Hackathon%202026-ED1C24?style=for-the-badge)](https://dorahacks.io/hackathon/casper-2026)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
 [![Casper Network](https://img.shields.io/badge/Casper-Testnet-ED1C24?style=for-the-badge)](https://testnet.cspr.live/)
 
-> **Seamless cross-chain transactions with real-time price feeds and slippage protection on Casper Network**
+> **From concept to REALITY: Intents that actually EXECUTE on-chain!**
 
-[Live Demo](https://frontend-sigma-ten-66.vercel.app) • [Video Demo](#) • [DoraHacks Submission](#)
+[Live Demo](https://casper-link.vercel.app) • [Video Demo](#) • [DoraHacks Submission](#)
 
 ---
 
-## 🌟 Overview
+## 🌟 What's NEW - Fully Working Execution!
 
-CasperLink is a revolutionary cross-chain intent execution framework built for the Casper Hackathon 2026. It enables users to express transaction intents (e.g., "Swap 1 BTC for ETH") without worrying about the underlying execution mechanics. The framework automatically handles price discovery, slippage protection, and cross-chain coordination.
+**Before**: Users could only CREATE intents (express what they want)
+**NOW**: Intents are **AUTOMATICALLY EXECUTED** on-chain with real transactions! ✨
 
-### 🎯 Key Features
+### 🎯 Proof of Working Execution
 
-- **🔮 Oracle Price Feeds**: Real-time cryptocurrency price data (BTC, ETH, CSPR) stored on-chain
-- **💱 Intent-Based Transactions**: Express what you want, not how to do it
-- **🛡️ Slippage Protection**: Automatic price deviation safeguards (configurable 1-10%)
-- **🔄 Intent Lifecycle**: Create → Pending → Executing → Completed workflow
-- **💼 User-Friendly Interface**: Glassmorphism UI with Casper branding
-- **⚡ Gas Optimized**: Efficient smart contract design using Odra framework
+**Real Transaction Hash**: [94dbe5de94f604573bd569259f7525949ede9864727a86cffcaf232c63eb8c98](https://testnet.cspr.live/transaction/94dbe5de94f604573bd569259f7525949ede9864727a86cffcaf232c63eb8c98)
+
+**What happened**:
+- User created intent: "Swap 1 CSPR to USDC"
+- CasperLink executed via CSPR.trade DEX integration
+- Result: **1 CSPR → 0.00457 WUSDC** (Success ✅)
+- All done with ONE button click!
+
+---
+
+## 🚀 Key Features
+
+- **✅ WORKING EXECUTION**: Intents don't just sit there - they execute automatically!
+- **🔮 Oracle Price Feeds**: Real-time cryptocurrency price data stored on-chain
+- **💱 CSPR.trade Integration**: Direct DEX swaps via `swap_exact_cspr_for_tokens`
+- **🛡️ Slippage Protection**: Automatic price deviation safeguards
+- **💼 Beautiful UI**: Success modals with copyable transaction hashes
+- **⚡ One-Click Experience**: Create intent → Sign → Execute → Done!
 
 ---
 
 ## 🏗️ Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                     CasperLink Framework                      │
-├─────────────────────────────────────────────────────────────┤
-│                                                               │
-│  ┌─────────────────┐         ┌──────────────────┐          │
-│  │  Oracle Contract │◄────────┤  Intent Parser   │          │
-│  │  (Price Feeds)   │         │   Contract V2    │          │
-│  └─────────────────┘         └──────────────────┘          │
-│         ▲                              ▲                     │
-│         │                              │                     │
-│         │        ┌─────────────────────┤                    │
-│         │        │                     │                     │
-│  ┌──────┴────────┴───┐         ┌──────┴──────┐             │
-│  │  Admin Dashboard  │         │ User Portal  │             │
-│  │  (Price Updates)  │         │  (Intents)   │             │
-│  └───────────────────┘         └──────────────┘             │
-│                                                               │
-└─────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│                     CasperLink Framework                       │
+├──────────────────────────────────────────────────────────────┤
+│                                                                │
+│  ┌─────────────────┐         ┌──────────────────┐           │
+│  │  Oracle Contract │◄────────┤  Intent Parser   │           │
+│  │  (Price Feeds)   │         │   Contract       │           │
+│  └─────────────────┘         └──────────────────┘           │
+│         ▲                              ▲                      │
+│         │                              │                      │
+│         │        ┌─────────────────────┤                     │
+│         │        │                     │                      │
+│  ┌──────┴────────┴───┐         ┌──────┴──────┐              │
+│  │  Admin Dashboard  │         │ User Portal  │              │
+│  │  (Price Updates)  │         │  (Intents)   │              │
+│  └───────────────────┘         └──────────────┘              │
+│                                        │                      │
+│                                        ▼                      │
+│                              ┌──────────────────┐            │
+│                              │  CSPR.trade DEX  │            │
+│                              │   (Execution)    │            │
+│                              └──────────────────┘            │
+│                                                                │
+└──────────────────────────────────────────────────────────────┘
 ```
 
 ### Smart Contracts
@@ -59,166 +78,60 @@ CasperLink is a revolutionary cross-chain intent execution framework built for t
   - `get_price(price_feed)`: Retrieve current price
 - **Deployed**: `hash-c558b459ba4e9d8a379bcef9629660d8cf9c34fa6e9c1165324959e433bc22ac`
 
-#### 2. **Intent Parser Contract V2**
-- **Purpose**: Manage cross-chain transaction intents with Oracle integration
+#### 2. **Intent Parser Contract**
+- **Purpose**: Manage cross-chain transaction intents
 - **Methods**:
-  - `create_intent(intent_id, from_token, to_token, amount)`: Create new intent
-  - `set_intent_price_with_oracle(intent_id, slippage_percent)`: Set price from Oracle
-  - `execute_intent(intent_id)`: Execute intent
-  - `complete_intent(intent_id)`: Mark intent as completed
-- **Deployed**: `hash-632a3eb1eef79a708c54d6e1bb84352e1445760ade1a6edbd20d7d375dfe20bb`
+  - `create_intent()`: Create new intent
+  - `execute_intent()`: Execute intent (with real on-chain execution!)
+  - `execute_intent_with_burn()`: Bridge integration (in progress)
+- **Deployed**: `hash-b6aaa644364bcd232691517396431417d926a0d256f6c0d6fa05d505f1e027d0`
+
+#### 3. **CSPR.trade Integration**
+- **Router Contract**: `hash-04a11a367e708c52557930c4e9c1301f4465100d1b1b6d0a62b48d3e32402867`
+- **Entry Point**: `swap_exact_cspr_for_tokens`
+- **Execution Pattern**: Proxy caller with SessionBuilder (SDK v5.x)
 
 ---
 
-## 🚀 Quick Start
+## 🎬 How It Works (End-to-End)
 
-### Prerequisites
-
-```bash
-# Node.js 18+
-node --version
-
-# Casper CLI tools
-cargo install casper-client
+### Step 1: Create Intent
+```
+User: "I want to swap 10 CSPR for USDC"
+└─> CasperLink creates intent on-chain
 ```
 
-### Installation
-
-```bash
-# Clone the repository
-git clone https://github.com/SohamJuneja/CasperLink.git
-cd casperlink
-
-# Install dependencies
-cd frontend
-npm install
-
-# Run development server
-npm run dev
+### Step 2: Execute Intent
+```
+User clicks "Execute via CSPR.trade"
+└─> Backend creates swap deploy using SDK v5.x
+    └─> Calls CSPR.trade router contract
+        └─> Executes swap_exact_cspr_for_tokens
+            └─> User signs with CSPR.click wallet
+                └─> Transaction submitted to Casper network
+                    └─> SUCCESS! ✅
 ```
 
-Open [http://localhost:3000](http://localhost:3000) 🎉
-
----
-
-## 📦 Deployment
-
-### Smart Contracts (Already Deployed!)
-
-Both contracts are live on Casper testnet:
-
-- **Oracle**: [View on Explorer](https://testnet.cspr.live/contract-package/c558b459ba4e9d8a379bcef9629660d8cf9c34fa6e9c1165324959e433bc22ac)
-- **Intent Parser V2**: [View on Explorer](https://testnet.cspr.live/contract-package/632a3eb1eef79a708c54d6e1bb84352e1445760ade1a6edbd20d7d375dfe20bb)
-
-### Frontend Deployment
-
-#### **Option 1: Vercel (Recommended) ⚡**
-
-✅ **Deployed!** The frontend is live on Vercel:
-- **Production**: [https://frontend-sigma-ten-66.vercel.app](https://frontend-sigma-ten-66.vercel.app)
-- **Preview**: [https://frontend-5q8rpznjf-sohamjunejas-projects.vercel.app](https://frontend-5q8rpznjf-sohamjunejas-projects.vercel.app)
-
-To deploy:
-
-```bash
-# Install Vercel CLI
-npm i -g vercel
-
-# Deploy from frontend directory
-cd frontend
-vercel
-
-# Deploy to production
-vercel --prod
-
-# Follow prompts - it's that easy!
+### Step 3: Success Modal
 ```
+✅ Transaction Submitted Successfully!
 
-#### **Option 2: Netlify**
+Transaction Hash:
+94dbe5de94f604573bd569259f7525949ede9864727a86cffcaf232c63eb8c98
 
-```bash
-# Install Netlify CLI
-npm i -g netlify-cli
-
-# Deploy
-cd frontend
-netlify deploy --prod
-```
-
-#### **Option 3: Manual**
-
-1. Build the project: `npm run build`
-2. Upload `.next` folder to your hosting
-3. Configure environment variables
-4. Start with `npm start`
-
----
-
-## 💻 Usage Examples
-
-### Creating an Intent
-
-```typescript
-// Connect wallet
-const signer = await clickRef.current.connect();
-
-// Create intent
-const intentId = `intent_${Date.now()}`;
-await contractService.createIntent(
-  signer,
-  intentId,
-  'BTC',
-  'ETH',
-  '100000000' // 1 BTC in motes
-);
-```
-
-### Setting Price with Slippage Protection
-
-```typescript
-// Set price from Oracle with 2% slippage
-await contractService.setIntentPriceWithOracle(
-  signer,
-  intentId,
-  2 // 2% slippage tolerance
-);
-```
-
-### Executing Intent
-
-```typescript
-// Execute the intent
-await contractService.executeIntent(signer, intentId);
-
-// Complete the intent
-await contractService.completeIntent(signer, intentId);
+[Copy] [View on Explorer →]
 ```
 
 ---
 
-## 🧪 Testing
+## 📊 Verified Transactions (Proof of Working Execution)
 
-### CLI Testing (Contracts)
-
-```bash
-# Test Oracle price submission
-casper-client put-deploy \
-  --node-address https://rpc.testnet.casperlabs.io \
-  --chain-name casper-test \
-  --secret-key ~/casper/secret_key.pem \
-  --payment-amount 5000000000 \
-  --session-hash hash-c558b459ba4e9d8a379bcef9629660d8cf9c34fa6e9c1165324959e433bc22ac \
-  --session-entry-point submit_price \
-  --session-arg "price_feed:string='BTC_USD'" \
-  --session-arg "price_value:u512='9850000000000'" \
-  --session-arg "timestamp:u64='1704326400'"
-```
-
----
-
-## 📊 Verified Transactions
-
-Here are real transactions proving CasperLink works:
+### ✅ CSPR.trade Swap Execution
+- **Transaction Hash**: `94dbe5de94f604573bd569259f7525949ede9864727a86cffcaf232c63eb8c98`
+- **Status**: **SUCCESS** ✨
+- **Action**: Swap 1 CSPR → 0.00457 WUSDC via CSPR.trade
+- **Method**: `swap_exact_cspr_for_tokens` via proxy_caller.wasm
+- [View on Explorer](https://testnet.cspr.live/transaction/94dbe5de94f604573bd569259f7525949ede9864727a86cffcaf232c63eb8c98)
 
 ### ✅ Intent Creation
 - **Deploy Hash**: `1caee218457dc14e1031148fa16982c01fe11bfc6b49d229dd7d5d48a7aa8a9b`
@@ -235,13 +148,82 @@ Here are real transactions proving CasperLink works:
 
 ---
 
+## 🚀 Quick Start
+
+### Prerequisites
+
+```bash
+# Node.js 18+
+node --version
+
+# Casper SDK v5.x (for backend scripts)
+npm install casper-js-sdk@^5.0.0
+```
+
+### Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/SohamJuneja/CasperLink.git
+cd casperlink
+
+# Install backend dependencies
+npm install
+
+# Install frontend dependencies
+cd frontend
+npm install
+
+# Run development server
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) 🎉
+
+---
+
+## 💻 Technical Implementation
+
+### CSPR.trade Integration
+
+The execution uses SDK v5.x with the SessionBuilder pattern:
+
+```javascript
+// Backend: create-swap-deploy-v5.js
+const sessionTransaction = new SessionBuilder()
+  .from(senderPublicKey)
+  .runtimeArgs(args)
+  .wasm(new Uint8Array(contractWasm))  // proxy_caller.wasm
+  .payment(15000000000)  // 15 CSPR for gas
+  .chainName('casper-test')
+  .build();
+
+const deployJson = JSON.stringify(sessionTransaction.toJSON());
+// This format is compatible with CSPR.click wallet
+```
+
+### Why Proxy Caller Pattern?
+
+CSPR.trade requires CSPR to be sent to the contract for swaps. The proxy caller pattern:
+1. Loads `proxy_caller.wasm`
+2. Populates the `__cargo_purse` with CSPR amount
+3. Calls the router contract's `swap_exact_cspr_for_tokens` entry point
+4. Returns swapped tokens to user
+
+---
+
 ## 🛠️ Technology Stack
 
 ### Smart Contracts
 - **Framework**: [Odra](https://odra.dev) - Rust framework for Casper
 - **Language**: Rust
 - **Network**: Casper Testnet
-- **Tools**: Casper Client, Cargo
+- **Tools**: Casper Client, Cargo, Odra CLI
+
+### Backend Scripts
+- **SDK**: casper-js-sdk v5.x
+- **Pattern**: SessionBuilder + proxy caller
+- **Runtime**: Node.js
 
 ### Frontend
 - **Framework**: Next.js 14 (App Router)
@@ -251,29 +233,8 @@ Here are real transactions proving CasperLink works:
 - **State**: React Hooks
 
 ### DevOps
-- **Deployment**: Vercel / Netlify
+- **Deployment**: Vercel
 - **Version Control**: Git
-
----
-
-## 🎨 Design Philosophy
-
-CasperLink embraces **glassmorphism** design with Casper's signature red branding:
-
-- **Colors**: Red (#ED1C24) gradients on dark backgrounds
-- **Typography**: Modern, bold headings with clean body text
-- **Effects**: Backdrop blur, subtle shadows, smooth animations
-- **Responsiveness**: Mobile-first design approach
-
----
-
-## 🔐 Security Considerations
-
-- **Slippage Protection**: Configurable 1-10% tolerance prevents price manipulation
-- **Oracle Validation**: Timestamp-based price freshness checks
-- **Access Control**: Admin-only price submission methods
-- **Input Validation**: Comprehensive parameter checks on all contract methods
-- **State Management**: Proper intent lifecycle state transitions
 
 ---
 
@@ -285,20 +246,58 @@ CasperLink embraces **glassmorphism** design with Casper's signature red brandin
 - CLI testing
 
 ### ✅ Phase 2: Intent System (Completed)
-- Intent Parser V2 with Oracle integration
+- Intent Parser with Oracle integration
 - Slippage protection
 - Frontend wallet integration
 
-### 🚧 Phase 3: Enhancement (In Progress)
-- Multi-chain support (Ethereum, BSC)
-- Advanced intent matching
-- Liquidity pool integration
+### ✅ Phase 3: Execution (COMPLETED!) 🎉
+- **CSPR.trade DEX integration**
+- **Real on-chain swap execution**
+- **Success modal with transaction tracking**
+- **Proof of end-to-end functionality**
 
-### 📅 Phase 4: Production (Q2 2026)
+### 🚧 Phase 4: Bridge Integration (In Progress)
+- CSPR.bridge integration for cross-chain swaps
+- Multi-chain execution support
+- TokenFactory.burn() integration
+
+### 📅 Phase 5: Production (Q1 2026)
 - Mainnet deployment
-- Professional UI/UX
-- Comprehensive documentation
+- Multi-DEX aggregation
+- Advanced intent matching
 - Security audits
+
+---
+
+## 🔐 Security Considerations
+
+- **Slippage Protection**: Conservative estimate with 95% tolerance prevents unfavorable execution
+- **Oracle Validation**: Timestamp-based price freshness checks
+- **SDK v5.x**: Using latest Casper SDK for wallet compatibility
+- **Proxy Pattern**: Secure CSPR transfer to contracts
+- **Input Validation**: Comprehensive parameter checks
+
+---
+
+## 💎 Why CasperLink Matters
+
+### For Users
+- **One-Click Execution**: No more manual bridge navigation
+- **Automatic DEX Integration**: Works with CSPR.trade (more DEXs coming!)
+- **Price Protection**: Oracle-verified pricing
+- **Transparent**: All transactions on-chain and verifiable
+
+### For Casper Ecosystem
+- **Public Oracle**: Free price feeds for all dApps
+- **Intent Infrastructure**: Building blocks for other developers
+- **DEX Integration**: Showcasing CSPR.trade capabilities
+- **Cross-Chain Ready**: Designed to work with CSPR.bridge
+
+### For Developers
+- **Open Source**: Full code transparency
+- **SDK v5.x Examples**: Reference implementation for SessionBuilder
+- **Proxy Caller Pattern**: Reusable WASM proxy example
+- **TypeScript + Rust**: Modern tech stack
 
 ---
 
@@ -323,6 +322,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🙏 Acknowledgments
 
 - **Casper Network** for the amazing blockchain infrastructure
+- **David & Michael** for guidance on CSPR.trade integration and SDK v5.x
 - **Odra Team** for the excellent smart contract framework
 - **CSPR.click** for the seamless wallet integration
 - **Casper Hackathon 2026** for the opportunity and prize pool
@@ -331,7 +331,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📧 Contact
 
-**Soham** - Project Developer
+**Soham Juneja** - Project Developer
 
 Project Link: [https://github.com/SohamJuneja/CasperLink](https://github.com/SohamJuneja/CasperLink)
 
@@ -343,8 +343,16 @@ DoraHacks: [https://dorahacks.io/buidl/casperlink](https://dorahacks.io/buidl/ca
 
 ### Built with ❤️ for Casper Hackathon 2026
 
-**$12.5K Prize Pool** | **Cross-Chain Innovation** | **Powered by Casper**
+**$12.5K Prize Pool** | **Real Execution** | **Powered by Casper**
 
-[🔗 Live Demo](https://frontend-sigma-ten-66.vercel.app) • [📹 Video](#) • [🏆 Submit](https://dorahacks.io)
+[🔗 Live Demo](https://casper-link.vercel.app) • [📹 Video](#) • [🏆 Submit](https://dorahacks.io)
+
+### 🎯 Key Onchain Actions (All Working!)
+
+1. **Create Intent** → Deploy Hash: `1caee218...` ✅
+2. **Execute Swap via CSPR.trade** → Transaction Hash: `94dbe5de...` ✅
+3. **Oracle Price Update** → Deploy Hash: `7e59b6cf...` ✅
+
+**This is not a concept. This is LIVE, WORKING infrastructure on Casper Testnet.**
 
 </div>

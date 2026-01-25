@@ -48,10 +48,11 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(result);
 
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
     console.error('[API] Error creating swap deploy:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to create deploy' },
+      { error: message },
       { status: 500 }
     );
   }

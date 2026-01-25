@@ -131,6 +131,7 @@ export default function IntentsComponent() {
     return newIntents;
   }, [checkPriceCondition]);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     loadIntents();
   }, []);

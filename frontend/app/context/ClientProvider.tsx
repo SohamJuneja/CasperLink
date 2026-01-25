@@ -54,13 +54,13 @@ const TopBarContainer = styled.div({
 
 export default function ClientProvider({ children }: { children: React.ReactNode }) {
   const [themeMode] = useState<ThemeModeType>(ThemeModeType.dark);
-  const topBarSettings = {};
+  const topBarSettings = {}; // Reset to empty object to fix type error
 
   // Create options at component level to ensure env var is read at runtime
   const clickOptions = {
     appName: 'CasperLink',
-    contentMode: 'iframe',
-    providers: ['casper-wallet'],
+    contentMode: 'popup', // Explicitly set to popup mode to show wallet button
+    providers: ['casper'], // Changed from 'casper-wallet' to 'casper'
     appId: getAppId(),
   };
 
