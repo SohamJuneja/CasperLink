@@ -1,23 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
-  CLPublicKey,
-  DeployUtil,
-  RuntimeArgs,
-  CLValueBuilder,
-  CLList,
-  CLU8
-} from 'casper-js-sdk';
+  SessionBuilder,
+  Args,
+  PublicKey,
+  Key,
+  Hash,
+  CLTypeUInt8,
+  CLValue,
+  CLTypeKey
+} from 'casper-js-sdk-v5';
 import { PROXY_CALLER_WASM_BASE64 } from './proxyCallerWasm';
 
 // CSPR.trade config
 const ROUTER_PACKAGE_HASH = '04a11a367e708c52557930c4e9c1301f4465100d1b1b6d0a62b48d3e32402867';
-const WCSPR_ADDRESS = '3d80df21ba4ee4d66a2a1f60c32570dd5685e4b279f6538162a5fd1314847c1e';
-const WUSDC_ADDRESS = '073024d1112dd970cc75b797952a70f71efe3a8a69af152e8fbe8ef434823396';
+const WCSPR_ADDRESS = 'hash-3d80df21ba4ee4d66a2a1f60c32570dd5685e4b279f6538162a5fd1314847c1e';
+const WUSDC_ADDRESS = 'hash-073024d1112dd970cc75b797952a70f71efe3a8a69af152e8fbe8ef434823396';
 
 /**
  * API Route: Create CSPR.trade swap deploy
  *
- * Creates a deploy for swap_exact_cspr_for_tokens on CSPR.trade using SDK v2.15.5
+ * Creates a deploy for swap_exact_cspr_for_tokens on CSPR.trade using SDK v5.x
+ * This matches the format that CSPR.click expects
  */
 export async function POST(request: NextRequest) {
   try {
@@ -34,77 +37,65 @@ export async function POST(request: NextRequest) {
     console.log('[API] Creating swap deploy for:', { publicKey, cspr_amount });
 
     // Parse sender public key
-    const senderPublicKey = CLPublicKey.fromHex(publicKey);
+    const senderPublicKey = PublicKey.fromHex(publicKey);
 
     // Calculate minimum output with slippage
-    // Based on approximate rate: 1 CSPR ≈ 0.004 WUSDC (very conservative)
-    const estimatedOutputPerCSPR = BigInt(4000); // WUSDC base units per CSPR
+    const estimatedOutputPerCSPR = BigInt(4000);
     const csprInMotes = BigInt(cspr_amount);
     const estimatedOutput = (csprInMotes * estimatedOutputPerCSPR) / BigInt(1e9);
-    const minOutput = (estimatedOutput * BigInt(5)) / BigInt(100); // 5% of estimated (95% slippage tolerance)
+    const minOutput = (estimatedOutput * BigInt(5)) / BigInt(100);
     const epochPlus10Min = Date.now() + 10 * 60 * 1000;
 
-    // Create Key types with Hash variant (0x01 prefix + 32 bytes)
-    const wcsprKeyBytes = new Uint8Array(33);
-    wcsprKeyBytes[0] = 1; // Hash variant
-    wcsprKeyBytes.set(Uint8Array.from(Buffer.from(WCSPR_ADDRESS, 'hex')), 1);
+    // Create CLKey values using SDK v5.x API
+    const wcsprKey = Key.newKey(WCSPR_ADDRESS);
+    const wcsprClKey = CLValue.newCLKey(wcsprKey);
 
-    const wusdcKeyBytes = new Uint8Array(33);
-    wusdcKeyBytes[0] = 1; // Hash variant
-    wusdcKeyBytes.set(Uint8Array.from(Buffer.from(WUSDC_ADDRESS, 'hex')), 1);
+    const wusdcKey = Key.newKey(WUSDC_ADDRESS);
+    const wusdcClKey = CLValue.newCLKey(wusdcKey);
 
-    // Create recipient key (account-hash format)
-    const accountHash = senderPublicKey.toAccountHashStr().replace('account-hash-', '');
-    const recipientKeyBytes = new Uint8Array(33);
-    recipientKeyBytes[0] = 0; // Account variant
-    recipientKeyBytes.set(Uint8Array.from(Buffer.from(accountHash, 'hex')), 1);
+    // Create recipient key
+    const accountHash = senderPublicKey.accountHash().toHex();
+    const recipientKey = Key.newKey(`account-hash-${accountHash}`);
+    const recipientClKey = CLValue.newCLKey(recipientKey);
 
-    // Build the inner swap args that will be serialized
-    const swapArgs = RuntimeArgs.fromMap({
-      amount_out_min: CLValueBuilder.u256(minOutput.toString()),
-      path: new CLList([
-        CLValueBuilder.byteArray(wcsprKeyBytes),
-        CLValueBuilder.byteArray(wusdcKeyBytes)
-      ]),
-      to: CLValueBuilder.byteArray(recipientKeyBytes),
-      deadline: CLValueBuilder.u64(epochPlus10Min),
+    // Build swap args using SDK v5.x pattern
+    const odraArgs = Args.fromMap({
+      amount_out_min: CLValue.newCLUInt256(minOutput.toString()),
+      path: CLValue.newCLList(CLTypeKey, [wcsprClKey, wusdcClKey]),
+      to: recipientClKey,
+      deadline: CLValue.newCLUint64(epochPlus10Min),
     });
 
-    // Serialize swap args to bytes
-    const serializedSwapArgs = swapArgs.toBytes().unwrap();
-
-    // Convert to CLList of U8
-    const argsAsList = new CLList(
-      Array.from(serializedSwapArgs).map(b => new CLU8(b))
-    );
-
-    // Build proxy caller args
-    const args = RuntimeArgs.fromMap({
-      amount: CLValueBuilder.u512(cspr_amount),
-      attached_value: CLValueBuilder.u512(cspr_amount),
-      entry_point: CLValueBuilder.string("swap_exact_cspr_for_tokens"),
-      package_hash: CLValueBuilder.byteArray(Uint8Array.from(Buffer.from(ROUTER_PACKAGE_HASH, 'hex'))),
-      args: argsAsList,
-    });
-
-    // Decode base64 wasm (embedded for Vercel compatibility)
+    // Decode base64 wasm
     const contractWasm = new Uint8Array(Buffer.from(PROXY_CALLER_WASM_BASE64, 'base64'));
     console.log('[API] Wasm loaded from embedded base64, size:', contractWasm.length);
 
-    // Create deploy params
-    const deployParams = new DeployUtil.DeployParams(senderPublicKey, 'casper-test');
+    // Serialize swap args as List<U8>
+    const serialized_args = CLValue.newCLList(
+      CLTypeUInt8,
+      Array.from(odraArgs.toBytes()).map(value => CLValue.newCLUint8(value))
+    );
 
-    // Create module bytes session
-    const session = DeployUtil.ExecutableDeployItem.newModuleBytes(contractWasm, args);
+    // Build proxy args
+    const args = Args.fromMap({
+      amount: CLValue.newCLUInt512(cspr_amount),
+      attached_value: CLValue.newCLUInt512(cspr_amount),
+      entry_point: CLValue.newCLString("swap_exact_cspr_for_tokens"),
+      package_hash: CLValue.newCLByteArray(Hash.fromHex(ROUTER_PACKAGE_HASH).toBytes()),
+      args: serialized_args,
+    });
 
-    // Create payment (15 CSPR for gas)
-    const payment = DeployUtil.standardPayment('15000000000');
+    // Create session transaction using SessionBuilder (v5.x)
+    const sessionTransaction = new SessionBuilder()
+      .from(senderPublicKey)
+      .runtimeArgs(args)
+      .wasm(contractWasm)
+      .payment(15000000000) // 15 CSPR for gas
+      .chainName('casper-test')
+      .build();
 
-    // Build the deploy
-    const deploy = DeployUtil.makeDeploy(deployParams, session, payment);
-
-    // Convert to JSON
-    const deployJson = JSON.stringify(DeployUtil.deployToJson(deploy).deploy);
+    // CRITICAL: Use .toJSON() to convert to format CSPR.click expects
+    const deployJson = JSON.stringify(sessionTransaction.toJSON());
 
     console.log('[API] Deploy created, size:', deployJson.length);
 
