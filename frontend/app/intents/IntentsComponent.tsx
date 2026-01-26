@@ -363,6 +363,11 @@ export default function IntentsComponent() {
       const { deployJson } = apiResult;
       console.log('Deploy JSON type:', typeof deployJson);
       console.log('Deploy JSON length:', deployJson?.length);
+
+      // Parse to inspect the structure
+      const deployObject = JSON.parse(deployJson);
+      console.log('Deploy structure keys:', Object.keys(deployObject));
+      console.log('Deploy hash:', deployObject.hash);
       console.log('Deploy created by backend, sending to CSPR.click...');
 
       // Send via CSPR.click - user signs with their wallet
