@@ -549,8 +549,8 @@ export default function IntentsComponent() {
                           <span>→</span>
                         </a>
                       )}
-                      {/* Execute Button for Ready intents */}
-                      {intent.status === 'Ready' && (
+                      {/* Execute Button for Ready and Pending intents */}
+                      {(intent.status === 'Ready' || intent.status === 'Pending') && (
                         <div className="flex flex-col gap-2 mt-2">
                           {/* On-chain execution button - creates real transaction */}
                           {canUseOnChainExecution(intent) && (
@@ -561,7 +561,7 @@ export default function IntentsComponent() {
                               }}
                               className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition inline-flex items-center gap-2"
                             >
-                              🔥 Execute via CSPR.bridge
+                              🔥 Execute via CSPR.bridge (in development)
                             </button>
                           )}
                           {/* NEW: CSPR.trade execution - working alternative */}
@@ -617,13 +617,13 @@ export default function IntentsComponent() {
                     </div>
                   )}
 
-                  {/* Ready Status Info */}
-                  {intent.status === 'Ready' && (
+                  {/* Ready/Pending Status Info */}
+                  {(intent.status === 'Ready' || intent.status === 'Pending') && (
                     <div className="mt-4 pt-4 border-t border-white/10">
                       <div className="flex items-center gap-2 mb-3">
                         <span className="text-purple-400">⚡</span>
                         <p className="text-sm text-purple-400">
-                          Price condition met! Execute the bridge with these parameters:
+                          {intent.status === 'Ready' ? 'Price condition met! ' : ''}Ready to execute with these parameters:
                         </p>
                       </div>
                       <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-3 text-xs space-y-1">

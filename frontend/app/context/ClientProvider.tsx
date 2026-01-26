@@ -45,7 +45,8 @@ const TopBarContainer = styled.div({
 
 export default function ClientProvider({ children }: { children: React.ReactNode }) {
   const [themeMode] = useState<ThemeModeType>(ThemeModeType.dark);
-  const topBarSettings: any = { wallet: true }; // Force show wallet button
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const topBarSettings = { wallet: true } as any; // Force show wallet button
 
   // Create options at component level to ensure env var is read at runtime
   const clickOptions = {
