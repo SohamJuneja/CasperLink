@@ -1,6 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import * as fs from 'fs';
-import * as path from 'path';
 import {
   CLPublicKey,
   DeployUtil,
@@ -9,6 +7,7 @@ import {
   CLList,
   CLU8
 } from 'casper-js-sdk';
+import { PROXY_CALLER_WASM_BASE64 } from './proxyCallerWasm';
 
 // CSPR.trade config
 const ROUTER_PACKAGE_HASH = '04a11a367e708c52557930c4e9c1301f4465100d1b1b6d0a62b48d3e32402867';
@@ -88,30 +87,9 @@ export async function POST(request: NextRequest) {
       args: argsAsList,
     });
 
-    // Load proxy_caller.wasm - try multiple paths for different environments
-    const possiblePaths = [
-      path.join(process.cwd(), 'app', 'api', 'create-swap-deploy', 'proxy_caller.wasm'),
-      path.join(process.cwd(), 'public', 'proxy_caller.wasm'),
-      path.join(__dirname, 'proxy_caller.wasm'),
-      '/var/task/public/proxy_caller.wasm', // Vercel serverless path
-      '/var/task/app/api/create-swap-deploy/proxy_caller.wasm', // Vercel alternative
-    ];
-
-    let contractWasm: Uint8Array | null = null;
-    for (const wasmPath of possiblePaths) {
-      try {
-        console.log('[API] Trying wasm path:', wasmPath);
-        contractWasm = new Uint8Array(fs.readFileSync(wasmPath));
-        console.log('[API] Wasm loaded from:', wasmPath, 'size:', contractWasm.length);
-        break;
-      } catch {
-        console.log('[API] Path not found:', wasmPath);
-      }
-    }
-
-    if (!contractWasm) {
-      throw new Error('Could not load proxy_caller.wasm from any path');
-    }
+    // Decode base64 wasm (embedded for Vercel compatibility)
+    const contractWasm = new Uint8Array(Buffer.from(PROXY_CALLER_WASM_BASE64, 'base64'));
+    console.log('[API] Wasm loaded from embedded base64, size:', contractWasm.length);
 
     // Create deploy params
     const deployParams = new DeployUtil.DeployParams(senderPublicKey, 'casper-test');
