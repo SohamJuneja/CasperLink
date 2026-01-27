@@ -15,6 +15,10 @@ interface ClickEvent {
   [key: string]: unknown;
 }
 
+// Intent types
+type IntentType = 'swap' | 'dca' | 'limit-order' | 'stop-loss' | 'take-profit';
+type DCAInterval = 'minute' | 'hourly' | 'daily' | 'weekly';
+
 interface Intent {
   id: string;
   fromToken: string;
@@ -22,16 +26,29 @@ interface Intent {
   fromChain?: string;
   toChain?: string;
   amount: string;
-  status: 'Created' | 'Pending' | 'Executing' | 'Completed' | 'Watching' | 'Ready';
+  status: 'Created' | 'Pending' | 'Executing' | 'Completed' | 'Watching' | 'Ready' | 'Scheduled';
   price?: string;
   slippage?: number;
   createdAt: string;
   txHash?: string;
+
+  // Intent type
+  intentType?: IntentType;
+
   // Smart Price Execution fields
   hasPriceCondition?: boolean;
   priceCondition?: 'gte' | 'lte' | null;
   targetPrice?: number | null;
   priceToken?: string | null;
+
+  // DCA specific fields
+  isDCA?: boolean;
+  dcaInterval?: DCAInterval | null;
+  dcaCount?: number | null;
+  dcaExecuted?: number;
+  dcaTotalAmount?: string | null;
+  nextExecutionTime?: number | null;
+  dcaExecutions?: { txHash: string; timestamp: string; amount: string }[];
 }
 
 interface PriceData {
@@ -51,6 +68,9 @@ export default function IntentsComponent() {
   const [bridgeTxHash, setBridgeTxHash] = useState<string | null>(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successTxHash, setSuccessTxHash] = useState<string | null>(null);
+  const [dcaCountdowns, setDcaCountdowns] = useState<Record<string, number>>({});
+  const [autoExecuting, setAutoExecuting] = useState<string | null>(null);
+  const [pendingAutoExecution, setPendingAutoExecution] = useState<string | null>(null);
 
   useEffect(() => {
     if (!clickRef) return;
@@ -148,6 +168,33 @@ export default function IntentsComponent() {
 
     return () => clearInterval(interval);
   }, [intents, fetchPrices, updateIntentStatuses]);
+
+  // DCA countdown timer - updates every second and triggers auto-execution
+  useEffect(() => {
+    const scheduledDcaIntents = intents.filter(i => i.status === 'Scheduled' && i.isDCA && i.nextExecutionTime);
+    if (scheduledDcaIntents.length === 0) return;
+
+    const interval = setInterval(() => {
+      const now = Date.now();
+      const newCountdowns: Record<string, number> = {};
+
+      scheduledDcaIntents.forEach(intent => {
+        if (intent.nextExecutionTime) {
+          const remaining = Math.max(0, Math.floor((intent.nextExecutionTime - now) / 1000));
+          newCountdowns[intent.id] = remaining;
+
+          // Check if this intent is ready for auto-execution
+          if (remaining === 0 && !autoExecuting && !executingId && !pendingAutoExecution && activeAccount) {
+            setPendingAutoExecution(intent.id);
+          }
+        }
+      });
+
+      setDcaCountdowns(newCountdowns);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [intents, autoExecuting, executingId, pendingAutoExecution, activeAccount]);
 
   const loadIntents = async () => {
     try {
@@ -381,15 +428,53 @@ export default function IntentsComponent() {
       if (txHash) {
         setBridgeTxHash(txHash);
 
-        // Update intent status to Executing with the execution tx hash
-        const updatedIntents = intents.map(i =>
-          i.id === intent.id ? {
+        // Update intent based on type
+        const updatedIntents = intents.map(i => {
+          if (i.id !== intent.id) return i;
+
+          // Handle DCA intent execution
+          if (i.isDCA) {
+            const newExecutedCount = (i.dcaExecuted || 0) + 1;
+            const isCompleted = newExecutedCount >= (i.dcaCount || 1);
+
+            // Calculate next execution time based on interval
+            const getNextTime = () => {
+              const now = Date.now();
+              switch (i.dcaInterval) {
+                case 'minute': return now + 60 * 1000;
+                case 'hourly': return now + 60 * 60 * 1000;
+                case 'daily': return now + 24 * 60 * 60 * 1000;
+                case 'weekly': return now + 7 * 24 * 60 * 60 * 1000;
+                default: return now + 24 * 60 * 60 * 1000;
+              }
+            };
+
+            // Add this execution to history
+            const newExecution = {
+              txHash: txHash,
+              timestamp: new Date().toISOString(),
+              amount: i.amount
+            };
+
+            return {
+              ...i,
+              status: isCompleted ? 'Completed' as const : 'Scheduled' as const,
+              dcaExecuted: newExecutedCount,
+              dcaExecutions: [...(i.dcaExecutions || []), newExecution],
+              nextExecutionTime: isCompleted ? null : getNextTime(),
+              executeTxHash: txHash,
+              csprTradeSwap: true
+            };
+          }
+
+          // Non-DCA intents
+          return {
             ...i,
             status: 'Executing' as const,
             executeTxHash: txHash,
             csprTradeSwap: true
-          } : i
-        );
+          };
+        });
         setIntents(updatedIntents);
         localStorage.setItem('casperlink_user_intents', JSON.stringify(updatedIntents));
 
@@ -412,6 +497,26 @@ export default function IntentsComponent() {
     }
   };
 
+  // Auto-execute DCA when pendingAutoExecution is set
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!pendingAutoExecution || autoExecuting || executingId) return;
+
+    const intentToExecute = intents.find(i => i.id === pendingAutoExecution);
+    if (!intentToExecute) {
+      setPendingAutoExecution(null);
+      return;
+    }
+
+    console.log(`[DCA] Auto-executing intent ${pendingAutoExecution}`);
+    setAutoExecuting(pendingAutoExecution);
+    setPendingAutoExecution(null);
+
+    executeViaCsprTrade(intentToExecute).finally(() => {
+      setAutoExecuting(null);
+    });
+  }, [pendingAutoExecution, autoExecuting, executingId, intents]);
+
   const getStatusColor = (status: Intent['status']) => {
     switch (status) {
       case 'Completed':
@@ -424,6 +529,8 @@ export default function IntentsComponent() {
         return 'bg-orange-500/20 text-orange-400 border-orange-500/30';
       case 'Pending':
         return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
+      case 'Scheduled':
+        return 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30';
       default:
         return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
     }
@@ -441,9 +548,42 @@ export default function IntentsComponent() {
         return '👁';
       case 'Pending':
         return '○';
+      case 'Scheduled':
+        return '📅';
       default:
         return '•';
     }
+  };
+
+  const getIntentTypeLabel = (intent: Intent) => {
+    switch (intent.intentType) {
+      case 'dca':
+        return { label: 'DCA Strategy', icon: '📈', color: 'text-cyan-400' };
+      case 'limit-order':
+        return { label: 'Limit Order', icon: '🎯', color: 'text-orange-400' };
+      case 'stop-loss':
+        return { label: 'Stop Loss', icon: '🛡️', color: 'text-red-400' };
+      case 'take-profit':
+        return { label: 'Take Profit', icon: '💰', color: 'text-green-400' };
+      default:
+        return { label: 'Swap', icon: '🔄', color: 'text-gray-400' };
+    }
+  };
+
+  const formatTimeUntil = (timestamp: number) => {
+    const now = Date.now();
+    const diff = timestamp - now;
+    if (diff <= 0) return 'Now';
+
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+
+    if (hours > 24) {
+      const days = Math.floor(hours / 24);
+      return `${days}d ${hours % 24}h`;
+    }
+    if (hours > 0) return `${hours}h ${minutes}m`;
+    return `${minutes}m`;
   };
 
   const formatDate = (dateString: string) => {
@@ -501,15 +641,71 @@ export default function IntentsComponent() {
                 >
                   <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                     <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
+                      <div className="flex items-center gap-3 mb-2 flex-wrap">
                         <h3 className="text-2xl font-bold">
                           {intent.fromToken} → {intent.toToken}
                         </h3>
+                        {/* Intent Type Badge */}
+                        {intent.intentType && intent.intentType !== 'swap' && (
+                          <span className={`px-2 py-0.5 rounded text-xs ${getIntentTypeLabel(intent).color} bg-white/5`}>
+                            {getIntentTypeLabel(intent).icon} {getIntentTypeLabel(intent).label}
+                          </span>
+                        )}
                         <span className={`px-3 py-1 rounded-full text-sm border ${getStatusColor(intent.status)}`}>
                           {getStatusIcon(intent.status)} {intent.status}
                         </span>
                       </div>
                       <p className="text-gray-400 text-sm mb-1">Amount: {intent.amount}</p>
+
+                      {/* DCA Progress */}
+                      {intent.isDCA && (
+                        <div className="mt-2 p-2 bg-cyan-500/10 rounded-lg border border-cyan-500/20">
+                          <div className="flex items-center justify-between text-xs mb-1">
+                            <span className="text-cyan-400">DCA Progress</span>
+                            <span className="text-white">{intent.dcaExecuted || 0} / {intent.dcaCount} executions</span>
+                          </div>
+                          <div className="w-full bg-gray-700 rounded-full h-2">
+                            <div
+                              className="bg-cyan-500 h-2 rounded-full transition-all"
+                              style={{ width: `${((intent.dcaExecuted || 0) / (intent.dcaCount || 1)) * 100}%` }}
+                            />
+                          </div>
+                          <div className="flex justify-between mt-1 text-xs text-gray-400">
+                            <span>Every {intent.dcaInterval}</span>
+                            {intent.nextExecutionTime && (
+                              <span className={dcaCountdowns[intent.id] !== undefined && dcaCountdowns[intent.id] <= 10 ? 'text-yellow-400 font-bold animate-pulse' : ''}>
+                                Next: {dcaCountdowns[intent.id] !== undefined
+                                  ? `${dcaCountdowns[intent.id]}s`
+                                  : formatTimeUntil(intent.nextExecutionTime)}
+                                {dcaCountdowns[intent.id] === 0 && ' (executing...)'}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* DCA Execution History */}
+                          {intent.dcaExecutions && intent.dcaExecutions.length > 0 && (
+                            <div className="mt-3 pt-2 border-t border-cyan-500/20">
+                              <p className="text-xs text-cyan-400 mb-2">Execution History:</p>
+                              <div className="space-y-1 max-h-32 overflow-y-auto">
+                                {intent.dcaExecutions.map((exec, idx) => (
+                                  <div key={idx} className="flex items-center justify-between text-xs bg-black/20 rounded px-2 py-1">
+                                    <span className="text-gray-400">#{idx + 1}</span>
+                                    <span className="text-white">{exec.amount}</span>
+                                    <a
+                                      href={`https://testnet.cspr.live/deploy/${exec.txHash}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-cyan-400 hover:text-cyan-300 font-mono"
+                                    >
+                                      {exec.txHash.slice(0, 8)}...{exec.txHash.slice(-6)}
+                                    </a>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
                       {intent.fromChain && intent.toChain && (
                         <p className="text-gray-400 text-sm mb-1">
                           Route: {intent.fromChain} → {intent.toChain}
@@ -640,6 +836,57 @@ export default function IntentsComponent() {
                     </div>
                   )}
 
+                  {/* Scheduled DCA Status Info */}
+                  {intent.status === 'Scheduled' && intent.isDCA && (
+                    <div className="mt-4 pt-4 border-t border-white/10">
+                      <div className="flex items-center gap-2 mb-3">
+                        <span className="text-cyan-400">📅</span>
+                        <p className="text-sm text-cyan-400">
+                          DCA Strategy Active - {intent.dcaExecuted || 0}/{intent.dcaCount} completed
+                        </p>
+                      </div>
+                      <div className="bg-cyan-500/10 border border-cyan-500/20 rounded-lg p-3 text-xs space-y-1">
+                        <p><span className="text-gray-400">Amount per swap:</span> <span className="text-white font-medium">{intent.amount}</span></p>
+                        <p><span className="text-gray-400">Frequency:</span> <span className="text-white font-medium capitalize">{intent.dcaInterval}</span></p>
+                        <p><span className="text-gray-400">Total planned:</span> <span className="text-white font-medium">{intent.dcaTotalAmount} {intent.fromToken}</span></p>
+                        {intent.nextExecutionTime && (
+                          <p>
+                            <span className="text-gray-400">Next execution:</span>{' '}
+                            <span className={`font-medium ${dcaCountdowns[intent.id] !== undefined && dcaCountdowns[intent.id] <= 10 ? 'text-yellow-400 animate-pulse' : 'text-white'}`}>
+                              {dcaCountdowns[intent.id] !== undefined
+                                ? `${dcaCountdowns[intent.id]} seconds`
+                                : formatTimeUntil(intent.nextExecutionTime)}
+                            </span>
+                          </p>
+                        )}
+                        {/* Auto-execution indicator */}
+                        {dcaCountdowns[intent.id] === 0 && (
+                          <div className="flex items-center gap-2 mt-2 text-yellow-400">
+                            <div className="animate-spin rounded-full h-3 w-3 border-t-2 border-b-2 border-yellow-400"></div>
+                            <span className="text-xs">Auto-executing swap...</span>
+                          </div>
+                        )}
+                      </div>
+                      {/* Manual execute button for DCA - uses CSPR.trade for real swaps */}
+                      <button
+                        onClick={() => executeViaCsprTrade(intent)}
+                        disabled={executingId === intent.id}
+                        className="mt-3 w-full px-4 py-2 bg-cyan-600 hover:bg-cyan-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition inline-flex items-center justify-center gap-2"
+                      >
+                        {executingId === intent.id ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
+                            Executing...
+                          </>
+                        ) : (
+                          <>
+                            ⚡ Execute Next DCA Swap Now
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
+
                   {intent.status === 'Executing' && (
                     <div className="mt-4 pt-4 border-t border-white/10">
                       <div className="flex flex-col gap-2">
@@ -671,26 +918,30 @@ export default function IntentsComponent() {
               ))}
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mt-8">
+            <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mt-8">
               <div className="glass-card rounded-xl p-4">
                 <p className="text-yellow-400 font-bold mb-2">○ Pending</p>
-                <p className="text-sm text-gray-400">Intent created, no price condition</p>
+                <p className="text-sm text-gray-400">Ready to execute swap</p>
+              </div>
+              <div className="glass-card rounded-xl p-4">
+                <p className="text-cyan-400 font-bold mb-2">📅 Scheduled</p>
+                <p className="text-sm text-gray-400">DCA strategy running</p>
               </div>
               <div className="glass-card rounded-xl p-4">
                 <p className="text-orange-400 font-bold mb-2">👁 Watching</p>
-                <p className="text-sm text-gray-400">Monitoring price for target condition</p>
+                <p className="text-sm text-gray-400">Monitoring price target</p>
               </div>
               <div className="glass-card rounded-xl p-4">
                 <p className="text-purple-400 font-bold mb-2">⚡ Ready</p>
-                <p className="text-sm text-gray-400">Price condition met, ready to execute</p>
+                <p className="text-sm text-gray-400">Price condition met</p>
               </div>
               <div className="glass-card rounded-xl p-4">
                 <p className="text-blue-400 font-bold mb-2">⟳ Executing</p>
-                <p className="text-sm text-gray-400">Bridge transaction in progress</p>
+                <p className="text-sm text-gray-400">Transaction in progress</p>
               </div>
               <div className="glass-card rounded-xl p-4">
                 <p className="text-green-400 font-bold mb-2">✓ Completed</p>
-                <p className="text-sm text-gray-400">Successfully bridged on-chain</p>
+                <p className="text-sm text-gray-400">Successfully executed</p>
               </div>
             </div>
 
