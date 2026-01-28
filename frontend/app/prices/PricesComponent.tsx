@@ -25,6 +25,12 @@ export default function PricesComponent() {
   const [prices, setPrices] = useState<PriceFeed[]>([]);
   const [loading, setLoading] = useState(true);
   const [dataSource, setDataSource] = useState<{ oracle: boolean; coingecko: boolean } | null>(null);
+  const [updatingOracle, setUpdatingOracle] = useState(false);
+  const [oracleStatus, setOracleStatus] = useState<{
+    message: string;
+    type: 'success' | 'error';
+    deploys?: { feed: string; deployHash: string }[];
+  } | null>(null);
 
   useEffect(() => {
     loadPrices();
@@ -82,9 +88,42 @@ export default function PricesComponent() {
     }
   }
 
-  // All sources shown uniformly as "Live" - internal implementation detail hidden
-  const getSourceBadge = () => {
-    return { text: 'Live', color: 'bg-green-500/20 text-green-400 border-green-500/30' };
+  async function updateOracle() {
+    setUpdatingOracle(true);
+    setOracleStatus(null);
+    try {
+      const res = await fetch('/api/update-oracle');
+      const data = await res.json();
+      if (data.success) {
+        setOracleStatus({
+          message: `${data.updated}/${data.total} feeds updated on-chain (${data.elapsed})`,
+          type: 'success',
+          deploys: data.results?.map((r: { feed: string; deployHash: string }) => ({
+            feed: r.feed,
+            deployHash: r.deployHash,
+          })),
+        });
+        // Reload prices to reflect new oracle data
+        await loadPrices();
+      } else {
+        setOracleStatus({ message: data.error || 'Failed to update oracle', type: 'error' });
+      }
+    } catch (error) {
+      setOracleStatus({ message: `Error: ${error instanceof Error ? error.message : 'Unknown'}`, type: 'error' });
+    } finally {
+      setUpdatingOracle(false);
+    }
+  }
+
+  const getSourceBadge = (source: 'oracle' | 'coingecko' | 'fallback') => {
+    switch (source) {
+      case 'oracle':
+        return { text: 'On-Chain', color: 'bg-green-500/20 text-green-400 border-green-500/30' };
+      case 'coingecko':
+        return { text: 'CoinGecko', color: 'bg-blue-500/20 text-blue-400 border-blue-500/30' };
+      case 'fallback':
+        return { text: 'Fallback', color: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' };
+    }
   };
 
   return (
@@ -107,7 +146,24 @@ export default function PricesComponent() {
               </div>
             )}
           </div>
-          <div className="flex gap-4">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={updateOracle}
+              disabled={updatingOracle}
+              className="px-4 py-2 rounded-lg bg-gradient-to-r from-red-500 to-orange-500 text-white text-sm font-semibold hover:from-red-600 hover:to-orange-600 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              {updatingOracle ? (
+                <>
+                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                  Updating On-Chain...
+                </>
+              ) : (
+                'Update Oracle On-Chain'
+              )}
+            </button>
             <button
               onClick={loadPrices}
               disabled={loading}
@@ -121,6 +177,46 @@ export default function PricesComponent() {
           </div>
         </div>
 
+        {oracleStatus && (
+          <div className={`mb-4 p-4 rounded-lg border text-sm relative ${
+            oracleStatus.type === 'success'
+              ? 'bg-green-500/10 border-green-500/30 text-green-400'
+              : 'bg-red-500/10 border-red-500/30 text-red-400'
+          }`}>
+            <button
+              onClick={() => setOracleStatus(null)}
+              className="absolute top-2 right-2 text-gray-500 hover:text-white transition"
+              aria-label="Dismiss"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            <div className="pr-6">
+              <p className="font-semibold">
+                {oracleStatus.type === 'success' ? 'Oracle updated: ' : ''}{oracleStatus.message}
+              </p>
+              {oracleStatus.deploys && oracleStatus.deploys.length > 0 && (
+                <div className="mt-2 space-y-1">
+                  {oracleStatus.deploys.map((d) => (
+                    <div key={d.deployHash} className="flex items-center gap-2 text-xs">
+                      <span className="text-gray-400">{d.feed}:</span>
+                      <a
+                        href={`https://testnet.cspr.live/deploy/${d.deployHash}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-mono text-red-400 hover:text-red-300 underline"
+                      >
+                        {d.deployHash.slice(0, 10)}...{d.deployHash.slice(-8)}
+                      </a>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {loading && prices.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-gray-400">Loading price feeds...</p>
@@ -128,7 +224,7 @@ export default function PricesComponent() {
         ) : (
           <div className="grid gap-4">
             {prices.map((feed) => {
-              const badge = getSourceBadge();
+              const badge = getSourceBadge(feed.source);
               return (
                 <div key={feed.symbol} className="glass-card rounded-xl p-6">
                   <div className="flex justify-between items-center">

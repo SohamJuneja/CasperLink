@@ -12,6 +12,7 @@ pub struct CasperLinkOracle {
 
 #[odra::module]
 impl CasperLinkOracle {
+    #[odra::init]
     pub fn init(&mut self) {
         let caller = self.env().caller();
         self.owner.set(caller);

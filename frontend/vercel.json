@@ -3,5 +3,11 @@
     "app/api/create-swap-deploy/route.ts": {
       "includeFiles": "app/api/create-swap-deploy/proxy_caller.wasm"
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/update-oracle",
+      "schedule": "*/30 * * * *"
+    }
+  ]
 }

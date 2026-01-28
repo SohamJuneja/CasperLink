@@ -134,36 +134,23 @@ export default function HomeComponent() {
     try {
       setLoading(true);
 
-      // Check if this is a same-chain swap (CSPR.trade) or cross-chain (bridge)
-      const isSameChainSwap = sourceChain === 'CASPER' && destChain === 'CASPER';
+      // All intents are signed on-chain via the IntentParser contract
+      const amountInMotes = (parseFloat(effectiveAmount) * 100_000_000).toString();
 
-      let txHash: string | null = null;
+      const deployJSON = await contractService.createIntentDeploy(
+        activeAccount.public_key,
+        sourceChain,
+        destChain,
+        tokenIn,
+        tokenOut,
+        amountInMotes
+      );
 
-      if (isSameChainSwap) {
-        // For same-chain swaps (DCA, Limit, Stop-Loss, Take-Profit on CSPR.trade):
-        // Don't call the IntentParser contract - just store locally
-        // The actual swap will be executed via CSPR.trade when triggered
-        txHash = `local_${Date.now()}`; // Local intent ID (no on-chain tx needed for creation)
-        console.log('Creating local CSPR.trade intent (no contract call)');
-      } else {
-        // For cross-chain swaps, use the IntentParser contract (bridge)
-        const amountInMotes = (parseFloat(effectiveAmount) * 100_000_000).toString();
-
-        const deployJSON = await contractService.createIntentDeploy(
-          activeAccount.public_key,
-          sourceChain,
-          destChain,
-          tokenIn,
-          tokenOut,
-          amountInMotes
-        );
-
-        const result = await clickRef.send(deployJSON, activeAccount.public_key);
-        txHash = result?.deployHash || null;
-      }
+      const result = await clickRef.send(deployJSON, activeAccount.public_key);
+      const txHash = result?.deployHash || null;
 
       if (txHash) {
-        setTxHash(isSameChainSwap ? 'Intent created locally' : txHash);
+        setTxHash(txHash);
 
         // Get existing intents first to calculate sequential ID
         const storedIntents = localStorage.getItem('casperlink_user_intents');
@@ -218,8 +205,8 @@ export default function HomeComponent() {
           amount: isDCA ? `${dcaAmountPerExecution} ${tokenIn}` : `${effectiveAmount} ${tokenIn}`,
           status: initialStatus,
           createdAt: new Date().toISOString(),
-          txHash: isSameChainSwap ? null : txHash, // No tx hash for local intents
-          isLocalIntent: isSameChainSwap, // Flag for CSPR.trade intents
+          txHash: txHash, // On-chain transaction hash from IntentParser contract
+          isLocalIntent: false, // All intents are now on-chain
 
           // Intent type
           intentType: intentType,
@@ -538,24 +525,18 @@ export default function HomeComponent() {
             {txHash && (
               <div className="p-4 bg-green-500/10 border border-green-500/30 rounded-lg">
                 <p className="text-sm text-green-400 break-all mb-2">
-                  ✅ {txHash === 'Intent created locally'
-                    ? 'Strategy created! Ready to execute on CSPR.trade'
-                    : `Intent created! TX: ${txHash}`}
+                  ✅ Intent created on-chain! TX: {txHash}
                 </p>
                 <div className="flex gap-2">
-                  {txHash !== 'Intent created locally' && (
-                    <>
-                      <a
-                        href={`https://testnet.cspr.live/deploy/${txHash}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs text-green-300 hover:text-green-200 underline"
-                      >
-                        View on Explorer →
-                      </a>
-                      <span className="text-gray-500">•</span>
-                    </>
-                  )}
+                  <a
+                    href={`https://testnet.cspr.live/deploy/${txHash}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-green-300 hover:text-green-200 underline"
+                  >
+                    View on Explorer →
+                  </a>
+                  <span className="text-gray-500">•</span>
                   <Link
                     href="/intents"
                     className="text-xs text-green-300 hover:text-green-200 underline"
