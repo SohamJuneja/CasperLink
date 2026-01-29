@@ -8,7 +8,8 @@
 
 > **From concept to REALITY: Intents that actually EXECUTE on-chain!**
 
-[Live Demo](https://casper-link.vercel.app) • [Video Demo](#) • [DoraHacks Submission](#)
+[Live Demo](https://casper-link.vercel.app) • 
+
 
 ---
 
