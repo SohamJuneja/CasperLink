@@ -11,7 +11,7 @@
   "dependencies": {
     "@make-software/csprclick-core-types": "^1.12.2",
     "@make-software/csprclick-ui": "^1.12.1",
-    "casper-js-sdk": "^2.15.5",
+    "casper-js-sdk": "^5.0.9",
     "casper-js-sdk-v5": "npm:casper-js-sdk@^5.0.9",
     "next": "14.2.35",
     "react": "^18",
