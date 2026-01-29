@@ -43,10 +43,13 @@ interface UpdateResult {
  * (with -----BEGIN EC PRIVATE KEY----- headers).
  */
 function loadOwnerKeyPair(): Keys.AsymmetricKey {
-  const pemContent = process.env.ORACLE_OWNER_SECRET_KEY;
+  let pemContent = process.env.ORACLE_OWNER_SECRET_KEY;
   if (!pemContent) {
     throw new Error('ORACLE_OWNER_SECRET_KEY environment variable not set');
   }
+
+  // Handle escaped newlines from env vars (Vercel stores \n as literal string)
+  pemContent = pemContent.replace(/\\n/g, '\n');
 
   // Step 1: Strip PEM headers and decode base64 to get DER bytes
   const privateKeyDerBytes = Keys.Secp256K1.readBase64WithPEM(pemContent);
