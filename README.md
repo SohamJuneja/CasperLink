@@ -346,7 +346,7 @@ DoraHacks: [https://dorahacks.io/buidl/casperlink](https://dorahacks.io/buidl/ca
 
 **$12.5K Prize Pool** | **Real Execution** | **Powered by Casper**
 
-[🔗 Live Demo](https://casper-link.vercel.app) • [📹 Video](#) • [🏆 Submit](https://dorahacks.io)
+[🔗 Live Demo](https://casper-link.vercel.app) • 
 
 ### 🎯 Key Onchain Actions (All Working!)
 
